@@ -1,0 +1,5 @@
+## Interface: 11507
+## Title: LightsaberCrit
+## Notes: Lightsaber crit/proc; dual-wield alternating swings; targeted mute of default melee SFX; /lsaber
+## SavedVariables: LightsaberCritDB
+LightsaberCrit.lua
