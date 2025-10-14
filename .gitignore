@@ -1,0 +1,27 @@
+# macOS
+.DS_Store
+
+# IDE/Editor
+.vscode/
+.idea/
+*.code-workspace
+
+# Archives/Packages
+*.zip
+*.tar.gz
+*.rar
+
+# Temp/Backup
+*.tmp
+*.bak
+*~
+
+# Node/Build (if tooling added later)
+node_modules/
+dist/
+build/
+
+# WoW (if running git above AddOns/)
+WTF/
+Cache/
+Logs/
