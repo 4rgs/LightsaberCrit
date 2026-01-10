@@ -3,13 +3,14 @@ local f = CreateFrame("Frame")
 f:RegisterEvent("PLAYER_LOGIN")
 f:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 f:RegisterEvent("UNIT_INVENTORY_CHANGED")
+f:RegisterEvent("PLAYER_LOGOUT")
 
 -- === Saved Variables ===
 LightsaberCritDB = LightsaberCritDB or {
     prevSFXVolume = nil,
     hookEnabled = false,
     autoMute = true,      -- targeted block of default melee SFX around our swings/crits
-    learn = false,        -- if true, print observed SFX during windows
+    learn = false,        -- if true, print when auto-mute triggers
 }
 
 -- === Config ===
@@ -38,10 +39,6 @@ local EXTRA_ATTACK_SPELLS = {
 local dualWield = false
 local swingFlip = false  -- toggles between swing1 and swing2
 
--- Time windows (seconds since GetTime())
-local swingWindowUntil = 0
-local critWindowUntil  = 0
-
 local function p(...)
     if DEBUG then
         DEFAULT_CHAT_FRAME:AddMessage("|cff00ff88[LSaber]|r "..table.concat({tostringall(...)}, " "))
@@ -61,37 +58,45 @@ local function UpdateDualWieldState()
 end
 
 -- ============ Targeted blocking of default SFX ============
--- We override PlaySound and PlaySoundFile. If we're within a swing/crit window,
--- and the channel is "SFX", we skip calling the original (so the Blizzard swing/crit won't play).
-local origPlaySound = PlaySound
-local origPlaySoundFile = PlaySoundFile
+-- Avoid taint by not overriding PlaySound/PlaySoundFile. We temporarily mute the SFX channel.
+local sfxMuteActive = false
+local sfxMuteUntil = 0
+local prevSFXEnabled = nil
 
-local function shouldBlock(channel)
-    if not LightsaberCritDB.autoMute then return false end
+local function restoreSFXMute()
+    if not sfxMuteActive then return end
+    if prevSFXEnabled ~= nil then
+        SetCVar("Sound_EnableSFX", prevSFXEnabled)
+    end
+    sfxMuteActive = false
+    prevSFXEnabled = nil
+end
+
+local function ensureSFXMuteWindow()
+    if not sfxMuteActive then return end
     local now = GetTime()
-    -- Only block SFX channel (our sabers use "Master")
-    if channel and channel ~= "SFX" then return false end
-    return now < swingWindowUntil or now < critWindowUntil
+    if now < sfxMuteUntil then
+        local remaining = sfxMuteUntil - now
+        if remaining < 0 then remaining = 0 end
+        C_Timer.After(remaining, ensureSFXMuteWindow)
+        return
+    end
+    restoreSFXMute()
 end
 
-PlaySound = function(soundKitID, channel, ...)
-    if shouldBlock(channel) then
+local function muteSFXFor(duration)
+    if not LightsaberCritDB.autoMute then return end
+    local now = GetTime()
+    sfxMuteUntil = math.max(sfxMuteUntil, now + duration)
+    if not sfxMuteActive then
+        prevSFXEnabled = GetCVar("Sound_EnableSFX")
+        SetCVar("Sound_EnableSFX", "0")
+        sfxMuteActive = true
         if LightsaberCritDB.learn then
-            DEFAULT_CHAT_FRAME:AddMessage("|cff00ff88[LSaber]|r Blocked PlaySound kitID="..tostring(soundKitID).." ch="..tostring(channel))
+            DEFAULT_CHAT_FRAME:AddMessage("|cff00ff88[LSaber]|r Auto-mute SFX for "..tostring(duration).."s")
         end
-        return -- swallow
+        C_Timer.After(duration, ensureSFXMuteWindow)
     end
-    return origPlaySound(soundKitID, channel, ...)
-end
-
-PlaySoundFile = function(soundFile, channel, ...)
-    if shouldBlock(channel) then
-        if LightsaberCritDB.learn then
-            DEFAULT_CHAT_FRAME:AddMessage("|cff00ff88[LSaber]|r Blocked PlaySoundFile file="..tostring(soundFile).." ch="..tostring(channel))
-        end
-        return -- swallow
-    end
-    return origPlaySoundFile(soundFile, channel, ...)
 end
 
 -- Slash: /lsaber
@@ -155,20 +160,17 @@ local function handleCombatLog()
 
     if not isPlayerGUID(srcGUID) then return end
 
-    local now = GetTime()
-
     -- Auto-attack swings
     if subEvent == "SWING_DAMAGE" then
         local amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing =
             arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19, arg20
 
         if critical then
-            -- Open a slightly longer crit window to block Blizzard crit SFX
-            critWindowUntil = now + 0.35
+            muteSFXFor(0.35)
             PlaySoundFile(SOUND_CRIT, "Master")
             p("SWING_DAMAGE crit", amount)
         else
-            swingWindowUntil = now + 0.25
+            muteSFXFor(0.25)
             if USE_SWING then
                 playSwingSound()
             end
@@ -181,11 +183,11 @@ local function handleCombatLog()
         local spellId, spellName, spellSchool, amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing =
             arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19, arg20, arg21, arg22, arg23
         if critical then
-            critWindowUntil = now + 0.35
+            muteSFXFor(0.35)
             PlaySoundFile(SOUND_CRIT, "Master")
             p("SPELL_DAMAGE crit:", spellName, amount)
         elseif USE_SWING and (spellSchool == 1 or spellName == "Attack") then
-            swingWindowUntil = now + 0.25
+            muteSFXFor(0.25)
             playSwingSound()
         end
         return
@@ -214,6 +216,8 @@ f:SetScript("OnEvent", function(self, event, ...)
     if event == "PLAYER_LOGIN" then
         UpdateDualWieldState()
         DEFAULT_CHAT_FRAME:AddMessage("|cff00ff88[LSaber]|r Loaded. /lsaber for help. Auto-mute default melee SFX is "..(LightsaberCritDB.autoMute and "ON" or "OFF"))
+    elseif event == "PLAYER_LOGOUT" then
+        restoreSFXMute()
     elseif event == "UNIT_INVENTORY_CHANGED" then
         local unit = ...
         if unit == "player" then
