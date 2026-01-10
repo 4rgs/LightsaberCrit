@@ -57,3 +57,10 @@ Addon para WoW Classic Era que reproduce sonidos estilo sable de luz en eventos 
 - Edita `LightsaberCrit.lua` y los sonidos en `sounds/`.
 - No requiere librerías externas.
 
+
+
+## Changelog
+  fix: avoid PlaySound hooks and mute SFX via CVar to prevent logout taint
+
+  Replaces global PlaySound/PlaySoundFile overrides with temporary SFX CVar mute
+  and restores SFX on logout.
