@@ -17,6 +17,7 @@ WoW Classic Era addon that plays lightsaber-inspired sounds on melee events (e.g
 ## Usage
 
 - Enable the addon in-game from the AddOns menu.
+- Open options via Interface Options -> AddOns -> LightsaberCrit, `/lsaber config`, or the minimap icon.
 - Play and enjoy the saber vibes on eligible events.
 
 ## Development
@@ -50,6 +51,7 @@ Addon para WoW Classic Era que reproduce sonidos estilo sable de luz en eventos 
 ## Uso
 
 - Activa el addon dentro del juego desde el menú AddOns.
+- Abre la configuracion en Interface Options -> AddOns -> LightsaberCrit, `/lsaber config`, o el icono del minimapa.
 - Juega y disfruta los sonidos en los eventos correspondientes.
 
 ## Desarrollo
