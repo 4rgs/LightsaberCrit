@@ -248,12 +248,70 @@ local function CreateButton(parent, label, width, height)
     return button
 end
 
+local function CreateSlider(parent, label, minValue, maxValue, step)
+    local slider = CreateFrame("Slider", nil, parent, "OptionsSliderTemplate")
+    slider:SetOrientation("HORIZONTAL")
+    slider:SetMinMaxValues(minValue, maxValue)
+    slider:SetValueStep(step)
+    slider:SetObeyStepOnDrag(true)
+    slider:SetWidth(180)
+    slider:SetHeight(16)
+    slider.Text:SetText(label)
+    slider.Low:SetText(string.format("%.2f", minValue))
+    slider.High:SetText(string.format("%.2f", maxValue))
+    slider:SetThumbTexture("Interface\\OptionsFrame\\UI-OptionsSlider-Thumb")
+    local thumb = slider:GetThumbTexture()
+    if thumb then
+        thumb:SetSize(16, 16)
+    end
+    if not slider.barBackground then
+        slider.barBackground = slider:CreateTexture(nil, "ARTWORK")
+    end
+    slider.barBackground:SetTexture("Interface\\OptionsFrame\\UI-OptionsSlider-Background")
+    slider.barBackground:SetPoint("LEFT", slider, "LEFT", 6, 0)
+    slider.barBackground:SetPoint("RIGHT", slider, "RIGHT", -6, 0)
+    slider.barBackground:SetHeight(8)
+    if not slider.barBorder then
+        slider.barBorder = slider:CreateTexture(nil, "BORDER")
+    end
+    slider.barBorder:SetTexture("Interface\\OptionsFrame\\UI-OptionsSlider-Border")
+    slider.barBorder:SetAllPoints(slider.barBackground)
+    return slider
+end
+
+local function UpdateSoundVolumeSliderText(slider, value)
+    if not slider or not slider.Text then return end
+    slider.Text:SetText(string.format("Volumen de sonidos: %d%%", math.floor((value or 1) * 100 + 0.5)))
+end
+
 local SOUND_TEST_OPTIONS = {
     { value = "crit", label = "Crit" },
     { value = "proc", label = "Proc" },
     { value = "swing1", label = "Swing 1" },
     { value = "swing2", label = "Swing 2" },
 }
+
+local function GetSoundOverride(kind)
+    if not LightsaberCritDB or not LightsaberCritDB.soundOverrides then return nil end
+    return LightsaberCritDB.soundOverrides[kind]
+end
+
+local function SetSoundOverride(kind, value)
+    if not LightsaberCritDB then return end
+    LightsaberCritDB.soundOverrides = LightsaberCritDB.soundOverrides or {}
+    if value == nil or value == "" then
+        LightsaberCritDB.soundOverrides[kind] = nil
+    else
+        LightsaberCritDB.soundOverrides[kind] = value
+    end
+end
+
+local function GetLSMSoundList()
+    if LSaber.GetLSMSoundList then
+        return LSaber.GetLSMSoundList()
+    end
+    return nil
+end
 
 local function GetSoundTestLabel(value)
     for _, option in ipairs(SOUND_TEST_OPTIONS) do
@@ -294,6 +352,16 @@ local function UpdateSoundDropdown(dropdown)
     UIDropDownMenu_SetText(dropdown, GetSoundTestLabel(value))
 end
 
+local function UpdateSoundListDropdown(dropdown)
+    if not dropdown or not LightsaberCritDB then return end
+    local kind = LightsaberCritDB.soundTest or "crit"
+    local override = GetSoundOverride(kind)
+    if UIDropDownMenu_SetSelectedValue then
+        UIDropDownMenu_SetSelectedValue(dropdown, override or "")
+    end
+    UIDropDownMenu_SetText(dropdown, override or "Por defecto (LightsaberCrit)")
+end
+
 local function AddSoundTestControls(parent, anchor)
     if type(LightsaberCritDB) ~= "table" then
         LightsaberCritDB = {}
@@ -301,30 +369,73 @@ local function AddSoundTestControls(parent, anchor)
     if LightsaberCritDB.soundTest == nil then
         LightsaberCritDB.soundTest = "crit"
     end
+    if LightsaberCritDB.soundOverrides == nil then
+        LightsaberCritDB.soundOverrides = {}
+    end
 
-    local dropdown = CreateFrame("Frame", nil, parent, "UIDropDownMenuTemplate")
-    dropdown:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", -16, -8)
-    UIDropDownMenu_SetWidth(dropdown, 120)
-    UIDropDownMenu_Initialize(dropdown, function(_, level)
+    local typeDropdown = CreateFrame("Frame", nil, parent, "UIDropDownMenuTemplate")
+    local soundListDropdown = CreateFrame("Frame", nil, parent, "UIDropDownMenuTemplate")
+    typeDropdown:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", -16, -8)
+    UIDropDownMenu_SetWidth(typeDropdown, 120)
+    soundListDropdown:SetPoint("TOPLEFT", typeDropdown, "BOTTOMLEFT", 0, -6)
+    UIDropDownMenu_SetWidth(soundListDropdown, 180)
+
+    UIDropDownMenu_Initialize(typeDropdown, function(_, level)
         for _, option in ipairs(SOUND_TEST_OPTIONS) do
             local info = UIDropDownMenu_CreateInfo()
             info.text = option.label
             info.value = option.value
             info.func = function()
                 LightsaberCritDB.soundTest = option.value
-                UpdateSoundDropdown(dropdown)
+                UpdateSoundDropdown(typeDropdown)
+                UpdateSoundListDropdown(soundListDropdown)
             end
             UIDropDownMenu_AddButton(info, level)
         end
     end)
-    UpdateSoundDropdown(dropdown)
+
+    UIDropDownMenu_Initialize(soundListDropdown, function(_, level)
+        local info = UIDropDownMenu_CreateInfo()
+        info.text = "Por defecto (LightsaberCrit)"
+        info.value = ""
+        info.func = function()
+            local kind = LightsaberCritDB.soundTest or "crit"
+            SetSoundOverride(kind, nil)
+            UpdateSoundListDropdown(soundListDropdown)
+        end
+        UIDropDownMenu_AddButton(info, level)
+
+        local list = GetLSMSoundList()
+        if list then
+            for _, name in ipairs(list) do
+                local entry = UIDropDownMenu_CreateInfo()
+                entry.text = name
+                entry.value = name
+                entry.func = function()
+                    local kind = LightsaberCritDB.soundTest or "crit"
+                    SetSoundOverride(kind, name)
+                    UpdateSoundListDropdown(soundListDropdown)
+                end
+                UIDropDownMenu_AddButton(entry, level)
+            end
+        else
+            local warn = UIDropDownMenu_CreateInfo()
+            warn.text = "LibSharedMedia no disponible"
+            warn.disabled = true
+            UIDropDownMenu_AddButton(warn, level)
+        end
+    end)
+
+    UpdateSoundDropdown(typeDropdown)
+    UpdateSoundListDropdown(soundListDropdown)
 
     local playButton = CreateButton(parent, "Reproducir", 90, 22)
-    playButton:SetPoint("LEFT", dropdown, "RIGHT", -6, 2)
+    playButton:SetPoint("LEFT", typeDropdown, "RIGHT", -6, 2)
     playButton:SetScript("OnClick", PlaySelectedSound)
 
     return {
-        dropdown = dropdown,
+        dropdown = typeDropdown,
+        soundListDropdown = soundListDropdown,
         playButton = playButton,
     }
 end
@@ -333,17 +444,25 @@ local function RefreshOptionsControls()
     if not LightsaberCritDB then return end
     if optionsControls then
         optionsControls.swing:SetChecked(LightsaberCritDB.swingEnabled)
+        optionsControls.combatOnly:SetChecked(LightsaberCritDB.combatOnly)
         optionsControls.autoMute:SetChecked(LightsaberCritDB.autoMute)
         optionsControls.learn:SetChecked(LightsaberCritDB.learn)
         optionsControls.minimap:SetChecked(not LightsaberCritDB.minimap.hide)
+        optionsControls.soundVolume:SetValue(LightsaberCritDB.soundVolume or 1.0)
+        UpdateSoundVolumeSliderText(optionsControls.soundVolume, optionsControls.soundVolume:GetValue())
         UpdateSoundDropdown(optionsControls.soundDropdown)
+        UpdateSoundListDropdown(optionsControls.soundListDropdown)
     end
     if configControls then
         configControls.swing:SetChecked(LightsaberCritDB.swingEnabled)
+        configControls.combatOnly:SetChecked(LightsaberCritDB.combatOnly)
         configControls.autoMute:SetChecked(LightsaberCritDB.autoMute)
         configControls.learn:SetChecked(LightsaberCritDB.learn)
         configControls.minimap:SetChecked(not LightsaberCritDB.minimap.hide)
+        configControls.soundVolume:SetValue(LightsaberCritDB.soundVolume or 1.0)
+        UpdateSoundVolumeSliderText(configControls.soundVolume, configControls.soundVolume:GetValue())
         UpdateSoundDropdown(configControls.soundDropdown)
+        UpdateSoundListDropdown(configControls.soundListDropdown)
     end
 end
 
@@ -355,8 +474,15 @@ local function BuildOptionsControls(parent, anchor)
         RefreshOptionsControls()
     end)
 
+    local combatOnlyCheck = CreateCheckbox(parent, "Solo en combate", "Reproduce sonidos solo cuando estas en combate.")
+    combatOnlyCheck:SetPoint("TOPLEFT", swingCheck, "BOTTOMLEFT", 0, -8)
+    combatOnlyCheck:SetScript("OnClick", function(self)
+        LightsaberCritDB.combatOnly = self:GetChecked() and true or false
+        RefreshOptionsControls()
+    end)
+
     local autoMuteCheck = CreateCheckbox(parent, "Auto-mute SFX melee", "Silencia SFX melee por defecto alrededor de tus golpes.")
-    autoMuteCheck:SetPoint("TOPLEFT", swingCheck, "BOTTOMLEFT", 0, -8)
+    autoMuteCheck:SetPoint("TOPLEFT", combatOnlyCheck, "BOTTOMLEFT", 0, -8)
     autoMuteCheck:SetScript("OnClick", function(self)
         LightsaberCritDB.autoMute = self:GetChecked() and true or false
         RefreshOptionsControls()
@@ -379,14 +505,26 @@ local function BuildOptionsControls(parent, anchor)
         RefreshOptionsControls()
     end)
 
-    local soundControls = AddSoundTestControls(parent, minimapCheck)
+    local volumeSlider = CreateSlider(parent, "Volumen de sonidos:", 0.10, 1.00, 0.05)
+    volumeSlider:SetPoint("TOPLEFT", minimapCheck, "BOTTOMLEFT", 0, -16)
+    volumeSlider:SetScript("OnValueChanged", function(self, value)
+        local step = 0.05
+        local rounded = math.floor((value / step) + 0.5) * step
+        LightsaberCritDB.soundVolume = rounded
+        UpdateSoundVolumeSliderText(self, rounded)
+    end)
+
+    local soundControls = AddSoundTestControls(parent, volumeSlider)
 
     return {
         swing = swingCheck,
+        combatOnly = combatOnlyCheck,
         autoMute = autoMuteCheck,
         learn = learnCheck,
         minimap = minimapCheck,
+        soundVolume = volumeSlider,
         soundDropdown = soundControls.dropdown,
+        soundListDropdown = soundControls.soundListDropdown,
     }, (soundControls and soundControls.playButton) or minimapCheck
 end
 
@@ -429,7 +567,7 @@ local function EnsureConfigFrame()
     if configFrame then return configFrame end
 
     configFrame = CreateFrame("Frame", "LightsaberCritConfigFrame", UIParent, "BasicFrameTemplateWithInset")
-    configFrame:SetSize(320, 240)
+    configFrame:SetSize(320, 330)
     configFrame:SetPoint("CENTER")
     configFrame:SetMovable(true)
     configFrame:EnableMouse(true)

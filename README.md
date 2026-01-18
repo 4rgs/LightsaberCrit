@@ -29,6 +29,7 @@ Supports Classic Era, Classic Anniversary/BCC, MoP, and Retail.
 - Edit `LightsaberCrit_*.lua` modules and assets under `sounds/`.
 - Typical structure for a simple addon. No external libraries required.
 - If `LibDataBroker-1.1` and `LibDBIcon-1.0` are present, the minimap icon uses them.
+- If `LibSharedMedia-3.0` is present, you can select custom sounds in the config.
 
 ## Notes
 
@@ -68,10 +69,13 @@ Soporta Classic Era, Classic Anniversary/BCC, MoP y Retail.
 - Edita los modulos `LightsaberCrit_*.lua` y los sonidos en `sounds/`.
 - No requiere librerías externas.
 - Si `LibDataBroker-1.1` y `LibDBIcon-1.0` están presentes, el icono del minimapa usa esas librerías.
+- Si `LibSharedMedia-3.0` está presente, puedes elegir sonidos personalizados en la configuracion.
 
 
 
 ## Changelog
+- add: LibSharedMedia sound selection per sound type
+- add: combat-only toggle and sound volume slider
 - add: sound test dropdown in config
 - refactor: split addon logic into modules
 - add: multi-client .toc interface tags (Classic Era/BCC/MoP/Retail)

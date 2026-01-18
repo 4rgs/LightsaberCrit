@@ -13,9 +13,13 @@ f:RegisterEvent("PLAYER_LOGOUT")
 local DEFAULT_DB = {
     hookEnabled = false,
     autoMute = true,      -- targeted block of default melee SFX around our swings/crits
+    autoMuteDuration = 0.25, -- seconds for the auto-mute window
+    combatOnly = false,   -- if true, only play sounds while in combat
     learn = false,        -- if true, print when auto-mute triggers
     swingEnabled = true,
     soundTest = "crit",
+    soundVolume = 1.0,
+    soundOverrides = {},
     minimap = {
         hide = false,
         angle = 90,
@@ -82,6 +86,16 @@ local function isPlayerGUID(guid)
     return guid == UnitGUID("player")
 end
 
+local function isPlayerInCombat()
+    if UnitAffectingCombat then
+        return UnitAffectingCombat("player")
+    end
+    if InCombatLockdown then
+        return InCombatLockdown()
+    end
+    return false
+end
+
 local function handleCombatLog(...)
     local timestamp, subEvent, hideCaster,
           srcGUID, srcName, srcFlags, srcRaidFlags,
@@ -104,6 +118,9 @@ local function handleCombatLog(...)
 
     if not subEvent or not LightsaberCritDB then return end
     if not isPlayerGUID(srcGUID) then return end
+    if LightsaberCritDB.combatOnly and not isPlayerInCombat() then return end
+
+    local muteDuration = tonumber(LightsaberCritDB.autoMuteDuration) or 0.25
 
     -- Auto-attack swings
     if subEvent == "SWING_DAMAGE" then
@@ -112,7 +129,7 @@ local function handleCombatLog(...)
 
         if critical then
             if LSaber.MuteSFXFor then
-                LSaber.MuteSFXFor(0.35)
+                LSaber.MuteSFXFor(muteDuration)
             end
             if LSaber.PlayCrit then
                 LSaber.PlayCrit()
@@ -120,7 +137,7 @@ local function handleCombatLog(...)
             debug("SWING_DAMAGE crit", amount)
         else
             if LSaber.MuteSFXFor then
-                LSaber.MuteSFXFor(0.25)
+                LSaber.MuteSFXFor(muteDuration)
             end
             if LightsaberCritDB.swingEnabled and LSaber.PlaySwing then
                 LSaber.PlaySwing(dualWield)
@@ -135,7 +152,7 @@ local function handleCombatLog(...)
             arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19, arg20, arg21, arg22, arg23
         if critical then
             if LSaber.MuteSFXFor then
-                LSaber.MuteSFXFor(0.35)
+                LSaber.MuteSFXFor(muteDuration)
             end
             if LSaber.PlayCrit then
                 LSaber.PlayCrit()
@@ -143,7 +160,7 @@ local function handleCombatLog(...)
             debug("SPELL_DAMAGE crit:", spellName, amount)
         elseif LightsaberCritDB.swingEnabled and (spellSchool == 1 or spellName == "Attack") then
             if LSaber.MuteSFXFor then
-                LSaber.MuteSFXFor(0.25)
+                LSaber.MuteSFXFor(muteDuration)
             end
             if LSaber.PlaySwing then
                 LSaber.PlaySwing(dualWield)
@@ -299,6 +316,9 @@ f:SetScript("OnEvent", function(self, event, ...)
     elseif event == "PLAYER_LOGOUT" then
         if LSaber.RestoreSFXMute then
             LSaber.RestoreSFXMute()
+        end
+        if LSaber.RestoreSoundVolume then
+            LSaber.RestoreSoundVolume()
         end
     elseif event == "UNIT_INVENTORY_CHANGED" then
         local unit = ...

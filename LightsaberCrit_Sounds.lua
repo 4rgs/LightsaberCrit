@@ -7,10 +7,102 @@ local SOUND_PROC = "Interface\\AddOns\\LightsaberCrit\\sounds\\lightsaber_proc.w
 local SOUND_SWING1 = "Interface\\AddOns\\LightsaberCrit\\sounds\\lightsaber_swing1.wav"
 local SOUND_SWING2 = "Interface\\AddOns\\LightsaberCrit\\sounds\\lightsaber_swing2.wav"
 
+local DEFAULT_SOUNDS = {
+    crit = SOUND_CRIT,
+    proc = SOUND_PROC,
+    swing1 = SOUND_SWING1,
+    swing2 = SOUND_SWING2,
+}
+
+local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
+if LSM then
+    LSM:Register("sound", "LightsaberCrit - Crit", SOUND_CRIT)
+    LSM:Register("sound", "LightsaberCrit - Proc", SOUND_PROC)
+    LSM:Register("sound", "LightsaberCrit - Swing 1", SOUND_SWING1)
+    LSM:Register("sound", "LightsaberCrit - Swing 2", SOUND_SWING2)
+end
+
 local swingFlip = false
 local sfxMuteActive = false
 local sfxMuteUntil = 0
 local prevSFXEnabled = nil
+local soundVolumeActive = false
+local soundVolumeUntil = 0
+local prevMasterVolume = nil
+
+local function restoreSoundVolume()
+    if not soundVolumeActive then return end
+    if prevMasterVolume ~= nil then
+        SetCVar("Sound_MasterVolume", prevMasterVolume)
+    end
+    soundVolumeActive = false
+    prevMasterVolume = nil
+end
+
+local function ensureSoundVolumeWindow()
+    if not soundVolumeActive then return end
+    local now = GetTime()
+    if now < soundVolumeUntil then
+        local remaining = soundVolumeUntil - now
+        if remaining < 0 then remaining = 0 end
+        if LSaber.After then
+            LSaber.After(remaining, ensureSoundVolumeWindow)
+        elseif C_Timer and C_Timer.After then
+            C_Timer.After(remaining, ensureSoundVolumeWindow)
+        end
+        return
+    end
+    restoreSoundVolume()
+end
+
+local function applySoundVolume(duration)
+    if not LightsaberCritDB then return end
+    local volume = tonumber(LightsaberCritDB.soundVolume)
+    if not volume or volume >= 0.99 then return end
+    if volume < 0 then volume = 0 end
+    if volume > 1 then volume = 1 end
+
+    local now = GetTime()
+    soundVolumeUntil = math.max(soundVolumeUntil, now + (duration or 0))
+    if not soundVolumeActive then
+        prevMasterVolume = GetCVar("Sound_MasterVolume")
+        local prev = tonumber(prevMasterVolume) or 1
+        local newVolume = prev * volume
+        SetCVar("Sound_MasterVolume", tostring(newVolume))
+        soundVolumeActive = true
+        if LSaber.After then
+            LSaber.After(duration or 0, ensureSoundVolumeWindow)
+        elseif C_Timer and C_Timer.After then
+            C_Timer.After(duration or 0, ensureSoundVolumeWindow)
+        end
+    end
+end
+
+local function resolveSound(kind)
+    local sound = DEFAULT_SOUNDS[kind]
+    local overrides = LightsaberCritDB and LightsaberCritDB.soundOverrides
+    local override = overrides and overrides[kind]
+    if override and override ~= "" then
+        if LSM and LSM.Fetch then
+            local fetched = LSM:Fetch("sound", override, true)
+            if fetched then
+                sound = fetched
+            elseif override:find("\\") then
+                sound = override
+            end
+        elseif override:find("\\") then
+            sound = override
+        end
+    end
+    return sound
+end
+
+function LSaber.GetLSMSoundList()
+    if not LSM or not LSM.List then return nil end
+    local list = LSM:List("sound")
+    table.sort(list)
+    return list
+end
 
 local function debug(...)
     if LSaber.Debug then
@@ -19,28 +111,34 @@ local function debug(...)
 end
 
 function LSaber.PlayCrit()
-    PlaySoundFile(SOUND_CRIT, "Master")
+    applySoundVolume(0.35)
+    PlaySoundFile(resolveSound("crit"), "Master")
 end
 
 function LSaber.PlayProc()
-    PlaySoundFile(SOUND_PROC, "Master")
+    applySoundVolume(0.35)
+    PlaySoundFile(resolveSound("proc"), "Master")
 end
 
 function LSaber.PlaySwing1()
-    PlaySoundFile(SOUND_SWING1, "Master")
+    applySoundVolume(0.25)
+    PlaySoundFile(resolveSound("swing1"), "Master")
 end
 
 function LSaber.PlaySwing2()
-    PlaySoundFile(SOUND_SWING2, "Master")
+    applySoundVolume(0.25)
+    PlaySoundFile(resolveSound("swing2"), "Master")
 end
 
 function LSaber.PlaySwing(dualWield)
     if dualWield then
         swingFlip = not swingFlip
-        PlaySoundFile(swingFlip and SOUND_SWING1 or SOUND_SWING2, "Master")
+        applySoundVolume(0.25)
+        PlaySoundFile(resolveSound(swingFlip and "swing1" or "swing2"), "Master")
         debug("SWING alt:", swingFlip and "S1" or "S2")
     else
-        PlaySoundFile(SOUND_SWING1, "Master")
+        applySoundVolume(0.25)
+        PlaySoundFile(resolveSound("swing1"), "Master")
         debug("SWING single")
     end
 end
@@ -91,4 +189,8 @@ end
 
 function LSaber.RestoreSFXMute()
     restoreSFXMute()
+end
+
+function LSaber.RestoreSoundVolume()
+    restoreSoundVolume()
 end
