@@ -15,6 +15,7 @@ local DEFAULT_DB = {
     autoMute = true,      -- targeted block of default melee SFX around our swings/crits
     learn = false,        -- if true, print when auto-mute triggers
     swingEnabled = true,
+    soundTest = "crit",
     minimap = {
         hide = false,
         angle = 90,

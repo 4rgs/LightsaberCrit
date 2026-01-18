@@ -241,6 +241,94 @@ local function CreateCheckbox(parent, label, tooltip)
     return check
 end
 
+local function CreateButton(parent, label, width, height)
+    local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    button:SetSize(width or 90, height or 22)
+    button:SetText(label)
+    return button
+end
+
+local SOUND_TEST_OPTIONS = {
+    { value = "crit", label = "Crit" },
+    { value = "proc", label = "Proc" },
+    { value = "swing1", label = "Swing 1" },
+    { value = "swing2", label = "Swing 2" },
+}
+
+local function GetSoundTestLabel(value)
+    for _, option in ipairs(SOUND_TEST_OPTIONS) do
+        if option.value == value then
+            return option.label
+        end
+    end
+    return SOUND_TEST_OPTIONS[1].label
+end
+
+local function PlaySelectedSound()
+    local value = LightsaberCritDB and LightsaberCritDB.soundTest or "crit"
+    if value == "crit" then
+        if LSaber.PlayCrit then LSaber.PlayCrit() end
+    elseif value == "proc" then
+        if LSaber.PlayProc then LSaber.PlayProc() end
+    elseif value == "swing1" then
+        if LSaber.PlaySwing1 then
+            LSaber.PlaySwing1()
+        elseif LSaber.PlaySwing then
+            LSaber.PlaySwing(false)
+        end
+    elseif value == "swing2" then
+        if LSaber.PlaySwing2 then
+            LSaber.PlaySwing2()
+        elseif LSaber.PlaySwing then
+            LSaber.PlaySwing(true)
+        end
+    end
+end
+
+local function UpdateSoundDropdown(dropdown)
+    if not dropdown or not LightsaberCritDB then return end
+    local value = LightsaberCritDB.soundTest or "crit"
+    if UIDropDownMenu_SetSelectedValue then
+        UIDropDownMenu_SetSelectedValue(dropdown, value)
+    end
+    UIDropDownMenu_SetText(dropdown, GetSoundTestLabel(value))
+end
+
+local function AddSoundTestControls(parent, anchor)
+    if type(LightsaberCritDB) ~= "table" then
+        LightsaberCritDB = {}
+    end
+    if LightsaberCritDB.soundTest == nil then
+        LightsaberCritDB.soundTest = "crit"
+    end
+
+    local dropdown = CreateFrame("Frame", nil, parent, "UIDropDownMenuTemplate")
+    dropdown:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", -16, -8)
+    UIDropDownMenu_SetWidth(dropdown, 120)
+    UIDropDownMenu_Initialize(dropdown, function(_, level)
+        for _, option in ipairs(SOUND_TEST_OPTIONS) do
+            local info = UIDropDownMenu_CreateInfo()
+            info.text = option.label
+            info.value = option.value
+            info.func = function()
+                LightsaberCritDB.soundTest = option.value
+                UpdateSoundDropdown(dropdown)
+            end
+            UIDropDownMenu_AddButton(info, level)
+        end
+    end)
+    UpdateSoundDropdown(dropdown)
+
+    local playButton = CreateButton(parent, "Reproducir", 90, 22)
+    playButton:SetPoint("LEFT", dropdown, "RIGHT", -6, 2)
+    playButton:SetScript("OnClick", PlaySelectedSound)
+
+    return {
+        dropdown = dropdown,
+        playButton = playButton,
+    }
+end
+
 local function RefreshOptionsControls()
     if not LightsaberCritDB then return end
     if optionsControls then
@@ -248,12 +336,14 @@ local function RefreshOptionsControls()
         optionsControls.autoMute:SetChecked(LightsaberCritDB.autoMute)
         optionsControls.learn:SetChecked(LightsaberCritDB.learn)
         optionsControls.minimap:SetChecked(not LightsaberCritDB.minimap.hide)
+        UpdateSoundDropdown(optionsControls.soundDropdown)
     end
     if configControls then
         configControls.swing:SetChecked(LightsaberCritDB.swingEnabled)
         configControls.autoMute:SetChecked(LightsaberCritDB.autoMute)
         configControls.learn:SetChecked(LightsaberCritDB.learn)
         configControls.minimap:SetChecked(not LightsaberCritDB.minimap.hide)
+        UpdateSoundDropdown(configControls.soundDropdown)
     end
 end
 
@@ -289,12 +379,15 @@ local function BuildOptionsControls(parent, anchor)
         RefreshOptionsControls()
     end)
 
+    local soundControls = AddSoundTestControls(parent, minimapCheck)
+
     return {
         swing = swingCheck,
         autoMute = autoMuteCheck,
         learn = learnCheck,
         minimap = minimapCheck,
-    }, minimapCheck
+        soundDropdown = soundControls.dropdown,
+    }, (soundControls and soundControls.playButton) or minimapCheck
 end
 
 local function RegisterOptionsPanel(panel)
@@ -320,11 +413,11 @@ local function EnsureOptionsPanel()
     subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
     subtitle:SetText("Configuracion de sonidos y minimapa.")
 
-    local controls, minimapCheck = BuildOptionsControls(optionsPanel, subtitle)
+    local controls, bottomAnchor = BuildOptionsControls(optionsPanel, subtitle)
     optionsControls = controls
 
     local hint = optionsPanel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    hint:SetPoint("TOPLEFT", minimapCheck, "BOTTOMLEFT", 0, -6)
+    hint:SetPoint("TOPLEFT", bottomAnchor, "BOTTOMLEFT", 0, -6)
     hint:SetText("Arrastra el icono para moverlo.")
 
     optionsPanel:SetScript("OnShow", RefreshOptionsControls)
@@ -369,11 +462,11 @@ local function EnsureConfigFrame()
     subtitle:SetPoint("TOPLEFT", configFrame, "TOPLEFT", 16, -32)
     subtitle:SetText("Configuracion de sonidos y minimapa.")
 
-    local controls, minimapCheck = BuildOptionsControls(configFrame, subtitle)
+    local controls, bottomAnchor = BuildOptionsControls(configFrame, subtitle)
     configControls = controls
 
     local hint = configFrame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    hint:SetPoint("TOPLEFT", minimapCheck, "BOTTOMLEFT", 0, -6)
+    hint:SetPoint("TOPLEFT", bottomAnchor, "BOTTOMLEFT", 0, -6)
     hint:SetText("Arrastra el icono para moverlo.")
 
     configFrame:SetScript("OnShow", RefreshOptionsControls)

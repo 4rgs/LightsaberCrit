@@ -72,6 +72,7 @@ Soporta Classic Era, Classic Anniversary/BCC, MoP y Retail.
 
 
 ## Changelog
+- add: sound test dropdown in config
 - refactor: split addon logic into modules
 - add: multi-client .toc interface tags (Classic Era/BCC/MoP/Retail)
 - add: LDB/DBIcon minimap icon integration with manual fallback
