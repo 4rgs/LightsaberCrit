@@ -1,0 +1,11 @@
+{
+  "name": "lightsabercrit",
+  "private": true,
+  "scripts": {
+    "prepare": "husky install",
+    "deploy": "bash scripts/deploy.sh"
+  },
+  "devDependencies": {
+    "husky": "^9.0.11"
+  }
+}

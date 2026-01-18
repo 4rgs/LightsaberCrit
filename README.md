@@ -32,6 +32,9 @@ Supports Classic Era, Classic Anniversary/BCC, MoP, and Retail.
 - If `LibDataBroker-1.1` and `LibDBIcon-1.0` are present, the minimap icon uses them.
 - If `LibSharedMedia-3.0` is present, you can select custom sounds in the config.
 - Profiles: you can auto-select by class/spec/role or set a manual profile in the config.
+- Deployment: run `scripts/deploy.sh` (set `WOW_ADDONS_DIR` if your AddOns path is not auto-detected).
+- Husky pre-push hook: `npm install` then `git push` will auto-run deploy (hook at `.husky/pre-push`).
+- No-node fallback: `git config core.hooksPath githooks` to use the simple pre-push hook.
 
 ## Notes
 
@@ -74,10 +77,15 @@ Soporta Classic Era, Classic Anniversary/BCC, MoP y Retail.
 - Si `LibDataBroker-1.1` y `LibDBIcon-1.0` están presentes, el icono del minimapa usa esas librerías.
 - Si `LibSharedMedia-3.0` está presente, puedes elegir sonidos personalizados en la configuracion.
 - Perfiles: puedes auto-seleccionar por clase/especializacion/rol o usar un perfil manual en la configuracion.
+- Deployment: ejecuta `scripts/deploy.sh` (define `WOW_ADDONS_DIR` si tu ruta de AddOns no se detecta).
+- Hook pre-push con Husky: `npm install` y luego `git push` ejecuta el deploy (hook en `.husky/pre-push`).
+- Alternativa sin Node: `git config core.hooksPath githooks` para usar el pre-push simple.
 
 
 
 ## Changelog
+- add: husky pre-push deploy hook
+- add: deployment script and pre-push hook
 - add: scrollable sound list menu for LSM entries
 - change: config UI labels in English
 - fix: adjust profile controls spacing in config window
