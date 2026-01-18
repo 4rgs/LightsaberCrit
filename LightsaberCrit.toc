@@ -9,6 +9,7 @@
 ## SavedVariables: LightsaberCritDB
 ## OptionalDeps: LibDataBroker-1.1, LibDBIcon-1.0, LibSharedMedia-3.0
 LightsaberCrit_Compat.lua
+LightsaberCrit_Profiles.lua
 LightsaberCrit_Sounds.lua
 LightsaberCrit_UI.lua
 LightsaberCrit.lua

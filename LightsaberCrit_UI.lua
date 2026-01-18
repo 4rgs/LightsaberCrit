@@ -291,6 +291,23 @@ local SOUND_TEST_OPTIONS = {
     { value = "swing2", label = "Swing 2" },
 }
 
+local PROFILE_MODE_OPTIONS = {
+    { value = "global", label = "Global" },
+    { value = "class", label = "Clase" },
+    { value = "spec", label = "Especializacion" },
+    { value = "role", label = "Rol" },
+    { value = "manual", label = "Manual" },
+}
+
+local function GetProfileModeLabel(value)
+    for _, option in ipairs(PROFILE_MODE_OPTIONS) do
+        if option.value == value then
+            return option.label
+        end
+    end
+    return PROFILE_MODE_OPTIONS[1].label
+end
+
 local function GetSoundOverride(kind)
     if not LightsaberCritDB or not LightsaberCritDB.soundOverrides then return nil end
     return LightsaberCritDB.soundOverrides[kind]
@@ -350,6 +367,31 @@ local function UpdateSoundDropdown(dropdown)
         UIDropDownMenu_SetSelectedValue(dropdown, value)
     end
     UIDropDownMenu_SetText(dropdown, GetSoundTestLabel(value))
+end
+
+local function UpdateProfileControls(controls)
+    if not controls or not LightsaberCritDB then return end
+    local mode = (LSaber.GetProfileMode and LSaber.GetProfileMode()) or (LightsaberCritDB.profileMode or "global")
+    if UIDropDownMenu_SetSelectedValue then
+        UIDropDownMenu_SetSelectedValue(controls.profileModeDropdown, mode)
+    end
+    UIDropDownMenu_SetText(controls.profileModeDropdown, GetProfileModeLabel(mode))
+    if controls.profileManualEdit then
+        controls.profileManualEdit:SetText((LSaber.GetManualProfileKey and LSaber.GetManualProfileKey()) or (LightsaberCritDB.manualProfileKey or "global"))
+    end
+    if controls.profileActiveText then
+        controls.profileActiveText:SetText("Perfil activo: "..((LSaber.GetActiveProfileKey and LSaber.GetActiveProfileKey()) or (LightsaberCritDB.activeProfile or "global")))
+    end
+    local showManual = (mode == "manual")
+    if controls.profileManualLabel then
+        controls.profileManualLabel:SetShown(showManual)
+    end
+    if controls.profileManualEdit then
+        controls.profileManualEdit:SetShown(showManual)
+    end
+    if controls.profileManualButton then
+        controls.profileManualButton:SetShown(showManual)
+    end
 end
 
 local function UpdateSoundListDropdown(dropdown)
@@ -440,6 +482,83 @@ local function AddSoundTestControls(parent, anchor)
     }
 end
 
+local function AddProfileControls(parent, anchor)
+    local profileControls = nil
+    local title = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    title:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 16, -8)
+    title:SetText("Perfiles:")
+
+    local modeDropdown = CreateFrame("Frame", nil, parent, "UIDropDownMenuTemplate")
+    modeDropdown:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
+    UIDropDownMenu_SetWidth(modeDropdown, 160)
+    UIDropDownMenu_Initialize(modeDropdown, function(_, level)
+        for _, option in ipairs(PROFILE_MODE_OPTIONS) do
+            local info = UIDropDownMenu_CreateInfo()
+            info.text = option.label
+            info.value = option.value
+            info.func = function()
+                if LSaber.SetProfileMode then
+                    LSaber.SetProfileMode(option.value)
+                else
+                    LightsaberCritDB.profileMode = option.value
+                end
+                UpdateProfileControls(profileControls)
+            end
+            UIDropDownMenu_AddButton(info, level)
+        end
+    end)
+
+    local manualLabel = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    manualLabel:SetPoint("TOPLEFT", modeDropdown, "BOTTOMLEFT", 0, -4)
+    manualLabel:SetText("Perfil manual:")
+
+    local manualEdit = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+    manualEdit:SetAutoFocus(false)
+    manualEdit:SetSize(120, 20)
+    manualEdit:SetPoint("LEFT", manualLabel, "RIGHT", 6, 0)
+    manualEdit:SetScript("OnEnterPressed", function(self)
+        self:ClearFocus()
+        if LSaber.SetManualProfileKey then
+            LSaber.SetManualProfileKey(self:GetText())
+        else
+            LightsaberCritDB.manualProfileKey = self:GetText()
+        end
+        UpdateProfileControls(profileControls)
+    end)
+    manualEdit:SetScript("OnEscapePressed", function(self)
+        self:ClearFocus()
+    end)
+
+    local manualButton = CreateButton(parent, "Usar", 60, 20)
+    manualButton:SetPoint("LEFT", manualEdit, "RIGHT", 6, 0)
+    manualButton:SetScript("OnClick", function()
+        if LSaber.SetManualProfileKey then
+            LSaber.SetManualProfileKey(manualEdit:GetText())
+        else
+            LightsaberCritDB.manualProfileKey = manualEdit:GetText()
+        end
+        UpdateProfileControls(profileControls)
+    end)
+
+    local activeText = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    activeText:SetPoint("TOPLEFT", manualLabel, "BOTTOMLEFT", 0, -4)
+    activeText:SetText("Perfil activo: "..((LSaber.GetActiveProfileKey and LSaber.GetActiveProfileKey()) or (LightsaberCritDB.activeProfile or "global")))
+
+    local spacer = CreateFrame("Frame", nil, parent)
+    spacer:SetSize(1, 1)
+    spacer:SetPoint("TOPLEFT", activeText, "BOTTOMLEFT", 0, -6)
+
+    profileControls = {
+        profileModeDropdown = modeDropdown,
+        profileManualLabel = manualLabel,
+        profileManualEdit = manualEdit,
+        profileManualButton = manualButton,
+        profileActiveText = activeText,
+    }
+    UpdateProfileControls(profileControls)
+    return profileControls, spacer
+end
+
 local function RefreshOptionsControls()
     if not LightsaberCritDB then return end
     if optionsControls then
@@ -452,6 +571,7 @@ local function RefreshOptionsControls()
         UpdateSoundVolumeSliderText(optionsControls.soundVolume, optionsControls.soundVolume:GetValue())
         UpdateSoundDropdown(optionsControls.soundDropdown)
         UpdateSoundListDropdown(optionsControls.soundListDropdown)
+        UpdateProfileControls(optionsControls.profileControls)
     end
     if configControls then
         configControls.swing:SetChecked(LightsaberCritDB.swingEnabled)
@@ -463,6 +583,7 @@ local function RefreshOptionsControls()
         UpdateSoundVolumeSliderText(configControls.soundVolume, configControls.soundVolume:GetValue())
         UpdateSoundDropdown(configControls.soundDropdown)
         UpdateSoundListDropdown(configControls.soundListDropdown)
+        UpdateProfileControls(configControls.profileControls)
     end
 end
 
@@ -515,6 +636,7 @@ local function BuildOptionsControls(parent, anchor)
     end)
 
     local soundControls = AddSoundTestControls(parent, volumeSlider)
+    local profileControls, profileAnchor = AddProfileControls(parent, soundControls.soundListDropdown or soundControls.playButton)
 
     return {
         swing = swingCheck,
@@ -525,7 +647,8 @@ local function BuildOptionsControls(parent, anchor)
         soundVolume = volumeSlider,
         soundDropdown = soundControls.dropdown,
         soundListDropdown = soundControls.soundListDropdown,
-    }, (soundControls and soundControls.playButton) or minimapCheck
+        profileControls = profileControls,
+    }, profileAnchor or soundControls.playButton or minimapCheck
 end
 
 local function RegisterOptionsPanel(panel)
@@ -567,7 +690,7 @@ local function EnsureConfigFrame()
     if configFrame then return configFrame end
 
     configFrame = CreateFrame("Frame", "LightsaberCritConfigFrame", UIParent, "BasicFrameTemplateWithInset")
-    configFrame:SetSize(320, 330)
+    configFrame:SetSize(320, 480)
     configFrame:SetPoint("CENTER")
     configFrame:SetMovable(true)
     configFrame:EnableMouse(true)

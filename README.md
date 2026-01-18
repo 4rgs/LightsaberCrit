@@ -13,6 +13,7 @@ Supports Classic Era, Classic Anniversary/BCC, MoP, and Retail.
 
 - `LightsaberCrit.toc` – Addon manifest (loads the Lua and sound assets)
 - `LightsaberCrit_Compat.lua` – Compatibility helpers (timers/math)
+- `LightsaberCrit_Profiles.lua` – Profile management (class/spec/role/manual)
 - `LightsaberCrit_Sounds.lua` – Sound playback and SFX mute logic
 - `LightsaberCrit_UI.lua` – Options UI and minimap icon
 - `LightsaberCrit.lua` – Core addon logic and events
@@ -30,6 +31,7 @@ Supports Classic Era, Classic Anniversary/BCC, MoP, and Retail.
 - Typical structure for a simple addon. No external libraries required.
 - If `LibDataBroker-1.1` and `LibDBIcon-1.0` are present, the minimap icon uses them.
 - If `LibSharedMedia-3.0` is present, you can select custom sounds in the config.
+- Profiles: you can auto-select by class/spec/role or set a manual profile in the config.
 
 ## Notes
 
@@ -53,6 +55,7 @@ Soporta Classic Era, Classic Anniversary/BCC, MoP y Retail.
 
 - `LightsaberCrit.toc` – Manifiesto del addon
 - `LightsaberCrit_Compat.lua` – Helpers de compatibilidad (timers/math)
+- `LightsaberCrit_Profiles.lua` – Perfiles (clase/especializacion/rol/manual)
 - `LightsaberCrit_Sounds.lua` – Sonidos y mute de SFX
 - `LightsaberCrit_UI.lua` – UI de opciones e icono del minimapa
 - `LightsaberCrit.lua` – Logica principal y eventos
@@ -70,10 +73,13 @@ Soporta Classic Era, Classic Anniversary/BCC, MoP y Retail.
 - No requiere librerías externas.
 - Si `LibDataBroker-1.1` y `LibDBIcon-1.0` están presentes, el icono del minimapa usa esas librerías.
 - Si `LibSharedMedia-3.0` está presente, puedes elegir sonidos personalizados en la configuracion.
+- Perfiles: puedes auto-seleccionar por clase/especializacion/rol o usar un perfil manual en la configuracion.
 
 
 
 ## Changelog
+- fix: adjust profile controls spacing in config window
+- add: profile system with auto selection and manual override
 - add: LibSharedMedia sound selection per sound type
 - add: combat-only toggle and sound volume slider
 - add: sound test dropdown in config

@@ -8,6 +8,10 @@ f:RegisterEvent("ADDON_LOADED")
 f:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 f:RegisterEvent("UNIT_INVENTORY_CHANGED")
 f:RegisterEvent("PLAYER_LOGOUT")
+f:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+f:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
+f:RegisterEvent("PLAYER_TALENT_UPDATE")
+f:RegisterEvent("PLAYER_ROLES_ASSIGNED")
 
 -- === Saved Variables ===
 local DEFAULT_DB = {
@@ -20,6 +24,10 @@ local DEFAULT_DB = {
     soundTest = "crit",
     soundVolume = 1.0,
     soundOverrides = {},
+    profileMode = "global",
+    manualProfileKey = "global",
+    activeProfile = "global",
+    profiles = {},
     minimap = {
         hide = false,
         angle = 90,
@@ -48,6 +56,8 @@ LSaber.Debug = function(...)
         DEFAULT_CHAT_FRAME:AddMessage("|cff00ff88[LSaber]|r "..table.concat({tostringall(...)}, " "))
     end
 end
+
+LSaber.Defaults = DEFAULT_DB
 
 -- Extra-attack procs (SpellIDs)
 local EXTRA_ATTACK_SPELLS = {
@@ -305,6 +315,9 @@ f:SetScript("OnEvent", function(self, event, ...)
         end
         ApplyDefaults(LightsaberCritDB, DEFAULT_DB)
         LSaber.DB = LightsaberCritDB
+        if LSaber.InitProfiles then
+            LSaber.InitProfiles()
+        end
         UpdateDualWieldState()
         if LSaber.EnsureOptionsPanel then
             LSaber.EnsureOptionsPanel()
@@ -327,5 +340,12 @@ f:SetScript("OnEvent", function(self, event, ...)
         end
     elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
         handleCombatLog(...)
+    elseif event == "PLAYER_SPECIALIZATION_CHANGED"
+        or event == "ACTIVE_TALENT_GROUP_CHANGED"
+        or event == "PLAYER_TALENT_UPDATE"
+        or event == "PLAYER_ROLES_ASSIGNED" then
+        if LSaber.ApplyProfile then
+            LSaber.ApplyProfile()
+        end
     end
 end)
