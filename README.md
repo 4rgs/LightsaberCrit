@@ -12,7 +12,10 @@ Supports Classic Era, Classic Anniversary/BCC, MoP, and Retail.
 ## Files
 
 - `LightsaberCrit.toc` – Addon manifest (loads the Lua and sound assets)
-- `LightsaberCrit.lua` – Main addon logic
+- `LightsaberCrit_Compat.lua` – Compatibility helpers (timers/math)
+- `LightsaberCrit_Sounds.lua` – Sound playback and SFX mute logic
+- `LightsaberCrit_UI.lua` – Options UI and minimap icon
+- `LightsaberCrit.lua` – Core addon logic and events
 - `sounds/` – Sound assets used by the addon
 
 ## Usage
@@ -23,7 +26,7 @@ Supports Classic Era, Classic Anniversary/BCC, MoP, and Retail.
 
 ## Development
 
-- Edit `LightsaberCrit.lua` and assets under `sounds/`.
+- Edit `LightsaberCrit_*.lua` modules and assets under `sounds/`.
 - Typical structure for a simple addon. No external libraries required.
 - If `LibDataBroker-1.1` and `LibDBIcon-1.0` are present, the minimap icon uses them.
 
@@ -48,7 +51,10 @@ Soporta Classic Era, Classic Anniversary/BCC, MoP y Retail.
 ## Archivos
 
 - `LightsaberCrit.toc` – Manifiesto del addon
-- `LightsaberCrit.lua` – Lógica principal del addon
+- `LightsaberCrit_Compat.lua` – Helpers de compatibilidad (timers/math)
+- `LightsaberCrit_Sounds.lua` – Sonidos y mute de SFX
+- `LightsaberCrit_UI.lua` – UI de opciones e icono del minimapa
+- `LightsaberCrit.lua` – Logica principal y eventos
 - `sounds/` – Archivos de sonido
 
 ## Uso
@@ -59,13 +65,14 @@ Soporta Classic Era, Classic Anniversary/BCC, MoP y Retail.
 
 ## Desarrollo
 
-- Edita `LightsaberCrit.lua` y los sonidos en `sounds/`.
+- Edita los modulos `LightsaberCrit_*.lua` y los sonidos en `sounds/`.
 - No requiere librerías externas.
 - Si `LibDataBroker-1.1` y `LibDBIcon-1.0` están presentes, el icono del minimapa usa esas librerías.
 
 
 
 ## Changelog
+- refactor: split addon logic into modules
 - add: multi-client .toc interface tags (Classic Era/BCC/MoP/Retail)
 - add: LDB/DBIcon minimap icon integration with manual fallback
 - fix: timer and combat log fallbacks for older clients

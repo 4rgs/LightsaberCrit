@@ -8,4 +8,7 @@
 ## Notes: Lightsaber crit/proc; dual-wield alternating swings; targeted mute of default melee SFX; /lsaber
 ## SavedVariables: LightsaberCritDB
 ## OptionalDeps: LibDataBroker-1.1, LibDBIcon-1.0
+LightsaberCrit_Compat.lua
+LightsaberCrit_Sounds.lua
+LightsaberCrit_UI.lua
 LightsaberCrit.lua
