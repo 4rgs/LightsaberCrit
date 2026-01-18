@@ -78,9 +78,48 @@ jobs:
             exit 1
           fi
 
+          find_version_id() {
+            local ver="$1"
+            local id
+            id=$(echo "$versions_json" | jq -r --arg ver "$ver" '.data[] | select(.versionString==$ver) | .id' | head -n 1)
+            if [[ -n "$id" && "$id" != "null" ]]; then
+              echo "$id"
+              return 0
+            fi
+
+            local major minor prefix
+            major=$(echo "$ver" | cut -d. -f1)
+            minor=$(echo "$ver" | cut -d. -f2)
+            prefix="${major}.${minor}."
+            id=$(echo "$versions_json" | jq -r --arg prefix "$prefix" '
+              [ .data[]
+                | select(.versionString | startswith($prefix))
+                | {id:.id, parts:(.versionString | split(".") | map(tonumber))}
+              ] | sort_by(.parts) | last | .id // empty')
+            if [[ -n "$id" && "$id" != "null" ]]; then
+              echo "Fallback for $ver -> $prefix*" >&2
+              echo "$id"
+              return 0
+            fi
+
+            prefix="${major}."
+            id=$(echo "$versions_json" | jq -r --arg prefix "$prefix" '
+              [ .data[]
+                | select(.versionString | startswith($prefix))
+                | {id:.id, parts:(.versionString | split(".") | map(tonumber))}
+              ] | sort_by(.parts) | last | .id // empty')
+            if [[ -n "$id" && "$id" != "null" ]]; then
+              echo "Fallback for $ver -> $prefix*" >&2
+              echo "$id"
+              return 0
+            fi
+
+            return 1
+          }
+
           ids=()
           while read -r ver; do
-            id=$(echo "$versions_json" | jq -r --arg ver "$ver" '.data[] | select(.versionString==$ver) | .id' | head -n 1)
+            id=$(find_version_id "$ver" || true)
             if [[ -z "$id" || "$id" == "null" ]]; then
               echo "Missing CurseForge game version id for $ver" >&2
               exit 1
