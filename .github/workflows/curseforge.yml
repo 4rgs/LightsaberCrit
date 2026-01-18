@@ -11,7 +11,108 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Package and upload
-        uses: BigWigsMods/packager@v2
+      - name: Build package
+        run: |
+          set -euo pipefail
+          rm -rf build
+          mkdir -p build/LightsaberCrit
+          rsync -a --delete \
+            --exclude ".git" \
+            --exclude ".github" \
+            --exclude ".husky" \
+            --exclude "githooks" \
+            --exclude "scripts" \
+            --exclude "package.json" \
+            --exclude "package-lock.json" \
+            --exclude "LightsaberCrit.zip" \
+            --exclude "LightsaberCrit" \
+            --exclude ".DS_Store" \
+            ./ build/LightsaberCrit/
+          (cd build && zip -r ../LightsaberCrit.zip LightsaberCrit)
+      - name: Upload to CurseForge
         env:
           CF_API_KEY: ${{ secrets.CF_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${CF_API_KEY:-}" ]]; then
+            echo "CF_API_KEY is missing. Set it in GitHub Actions secrets." >&2
+            exit 1
+          fi
+          accept_header=(-H "Accept: application/json")
+          api_header=(-H "x-api-key: ${CF_API_KEY}")
+          interface_to_version() {
+            local raw="$1"
+            local len=${#raw}
+            local major minor patch
+            if [[ $len -eq 6 ]]; then
+              major="${raw:0:2}"
+              minor="${raw:2:2}"
+              patch="${raw:4:2}"
+            elif [[ $len -eq 5 ]]; then
+              major="${raw:0:1}"
+              minor="${raw:1:2}"
+              patch="${raw:3:2}"
+            else
+              return 1
+            fi
+            minor=$((10#$minor))
+            patch=$((10#$patch))
+            echo "${major}.${minor}.${patch}"
+          }
+
+          versions=()
+          while read -r line; do
+            value=$(echo "$line" | awk '{print $3}')
+            version=$(interface_to_version "$value")
+            versions+=("$version")
+          done < <(grep -E '^## Interface' LightsaberCrit.toc)
+
+          versions_unique=$(printf '%s\n' "${versions[@]}" | sort -u)
+          versions_response=$(curl -sS -w "\n%{http_code}" "${accept_header[@]}" "${api_header[@]}" \
+            "https://api.curseforge.com/v1/games/1/versions")
+          versions_status=$(echo "$versions_response" | tail -n 1)
+          versions_json=$(echo "$versions_response" | sed '$d')
+          if [[ "$versions_status" -ge 400 ]]; then
+            echo "CurseForge versions API failed with status $versions_status" >&2
+            echo "$versions_json" | jq . || echo "$versions_json"
+            exit 1
+          fi
+
+          ids=()
+          while read -r ver; do
+            id=$(echo "$versions_json" | jq -r --arg ver "$ver" '.data[] | select(.versionString==$ver) | .id' | head -n 1)
+            if [[ -z "$id" || "$id" == "null" ]]; then
+              echo "Missing CurseForge game version id for $ver" >&2
+              exit 1
+            fi
+            ids+=("$id")
+          done <<< "$versions_unique"
+
+          ids_json=$(printf '%s\n' "${ids[@]}" | jq -R . | jq -s .)
+          short_sha="${GITHUB_SHA:0:7}"
+          metadata=$(jq -n \
+            --arg name "LightsaberCrit-$short_sha" \
+            --arg changelog "Automated build $short_sha" \
+            --argjson gameVersions "$ids_json" \
+            '{
+              changelog: $changelog,
+              changelogType: "text",
+              releaseType: "alpha",
+              displayName: $name,
+              gameVersions: $gameVersions
+            }')
+
+          upload_response=$(curl -sS -w "\n%{http_code}" -X POST \
+            "${accept_header[@]}" \
+            "${api_header[@]}" \
+            -F "metadata=$metadata;type=application/json" \
+            -F "file=@LightsaberCrit.zip" \
+            "https://api.curseforge.com/v1/mods/1365221/files")
+          upload_status=$(echo "$upload_response" | tail -n 1)
+          upload_body=$(echo "$upload_response" | sed '$d')
+          if [[ "$upload_status" -ge 400 ]]; then
+            echo "CurseForge upload failed with status $upload_status" >&2
+            echo "$upload_body" | jq . || echo "$upload_body"
+            exit 1
+          fi
+          echo "$upload_body" | jq .
