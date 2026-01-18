@@ -339,6 +339,174 @@ local function GetSoundTestLabel(value)
     return SOUND_TEST_OPTIONS[1].label
 end
 
+local function SetDropdownMaxHeight(dropdown, maxItems)
+    if not dropdown then return end
+    local count = maxItems or 12
+    if UIDropDownMenu_SetMaxVisibleButtons then
+        UIDropDownMenu_SetMaxVisibleButtons(dropdown, count)
+    end
+    dropdown.maxButtons = count
+    local buttonHeight = UIDROPDOWNMENU_BUTTON_HEIGHT or 16
+    local borderHeight = UIDROPDOWNMENU_BORDER_HEIGHT or 0
+    dropdown.maxHeight = (buttonHeight * count) + borderHeight
+end
+
+local function BuildSoundListEntries()
+    local entries = {
+        { label = "Default (LightsaberCrit)", value = "" },
+    }
+    local list = GetLSMSoundList()
+    if list then
+        for _, name in ipairs(list) do
+            entries[#entries + 1] = { label = name, value = name }
+        end
+    else
+        entries[#entries + 1] = { label = "LibSharedMedia not available", value = nil, disabled = true }
+    end
+    return entries
+end
+
+local function EnsureSoundListMenu(dropdown)
+    if dropdown.menu then return dropdown.menu end
+
+    local backdropTemplate = BackdropTemplateMixin and "BackdropTemplate" or nil
+    local menu = CreateFrame("Frame", nil, UIParent, backdropTemplate)
+    menu:SetFrameStrata("FULLSCREEN_DIALOG")
+    menu:SetBackdrop({
+        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true,
+        tileSize = 16,
+        edgeSize = 16,
+        insets = { left = 3, right = 3, top = 3, bottom = 3 },
+    })
+    menu:SetBackdropColor(0, 0, 0, 0.9)
+    menu:EnableMouse(true)
+    menu:Hide()
+
+    local scrollFrame = CreateFrame("ScrollFrame", nil, menu, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetPoint("TOPLEFT", 8, -8)
+    scrollFrame:SetPoint("BOTTOMRIGHT", -28, 8)
+    scrollFrame:EnableMouseWheel(true)
+    scrollFrame:SetScript("OnMouseWheel", function(self, delta)
+        local max = math.max(0, (menu.contentHeight or 0) - self:GetHeight())
+        local nextValue = self:GetVerticalScroll() - (delta * 18)
+        if nextValue < 0 then
+            nextValue = 0
+        elseif nextValue > max then
+            nextValue = max
+        end
+        self:SetVerticalScroll(nextValue)
+    end)
+
+    local scrollChild = CreateFrame("Frame", nil, scrollFrame)
+    scrollChild:SetSize(1, 1)
+    scrollFrame:SetScrollChild(scrollChild)
+
+    menu.scrollFrame = scrollFrame
+    menu.scrollChild = scrollChild
+    menu.rows = {}
+    menu.maxVisible = 12
+
+    local catcher = CreateFrame("Frame", nil, UIParent)
+    catcher:SetAllPoints(UIParent)
+    catcher:SetFrameStrata("DIALOG")
+    catcher:EnableMouse(true)
+    catcher:Hide()
+    catcher:SetScript("OnMouseDown", function()
+        if menu:IsShown() then
+            menu:Hide()
+        end
+    end)
+    dropdown.menuCatcher = catcher
+
+    menu:SetScript("OnHide", function()
+        catcher:Hide()
+    end)
+
+    dropdown.menu = menu
+    return menu
+end
+
+local function PopulateSoundListMenu(dropdown)
+    local menu = EnsureSoundListMenu(dropdown)
+    local entries = BuildSoundListEntries()
+    local rowHeight = UIDROPDOWNMENU_BUTTON_HEIGHT or 16
+    local visible = math.min(#entries, menu.maxVisible or 12)
+    local listWidth = dropdown.listWidth or 180
+    local menuWidth = listWidth + 28
+
+    menu:SetSize(menuWidth, (visible * rowHeight) + 12)
+
+    local rowWidth = menu.scrollFrame:GetWidth()
+    if rowWidth == 0 then
+        rowWidth = menuWidth - 28
+    end
+
+    menu.contentHeight = #entries * rowHeight
+    menu.scrollChild:SetSize(rowWidth, menu.contentHeight)
+    menu.scrollFrame:SetVerticalScroll(0)
+
+    local selected = GetSoundOverride((LightsaberCritDB and LightsaberCritDB.soundTest) or "crit") or ""
+
+    for index, entry in ipairs(entries) do
+        local row = menu.rows[index]
+        if not row then
+            row = CreateFrame("Button", nil, menu.scrollChild)
+            row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
+            row.text = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+            row.text:SetPoint("LEFT", 6, 0)
+            menu.rows[index] = row
+        end
+        row:SetSize(rowWidth, rowHeight)
+        row:ClearAllPoints()
+        row:SetPoint("TOPLEFT", 0, -((index - 1) * rowHeight))
+        row.text:SetText(entry.label)
+
+        if entry.disabled then
+            row.text:SetTextColor(0.5, 0.5, 0.5)
+            row:SetScript("OnClick", nil)
+        else
+            if entry.value == selected then
+                row.text:SetTextColor(1, 0.82, 0)
+            else
+                row.text:SetTextColor(1, 1, 1)
+            end
+            row:SetScript("OnClick", function()
+                local kind = LightsaberCritDB.soundTest or "crit"
+                if entry.value == "" then
+                    SetSoundOverride(kind, nil)
+                else
+                    SetSoundOverride(kind, entry.value)
+                end
+                UpdateSoundListDropdown(dropdown)
+                menu:Hide()
+            end)
+        end
+
+        row:Show()
+    end
+
+    for index = #entries + 1, #menu.rows do
+        menu.rows[index]:Hide()
+    end
+end
+
+local function ToggleSoundListMenu(dropdown)
+    local menu = EnsureSoundListMenu(dropdown)
+    if menu:IsShown() then
+        menu:Hide()
+        return
+    end
+    PopulateSoundListMenu(dropdown)
+    menu:ClearAllPoints()
+    menu:SetPoint("TOPLEFT", dropdown, "BOTTOMLEFT", 16, 2)
+    if dropdown.menuCatcher then
+        dropdown.menuCatcher:Show()
+    end
+    menu:Show()
+end
+
 local function PlaySelectedSound()
     local value = LightsaberCritDB and LightsaberCritDB.soundTest or "crit"
     if value == "crit" then
@@ -421,6 +589,18 @@ local function AddSoundTestControls(parent, anchor)
     UIDropDownMenu_SetWidth(typeDropdown, 120)
     soundListDropdown:SetPoint("TOPLEFT", typeDropdown, "BOTTOMLEFT", 0, -6)
     UIDropDownMenu_SetWidth(soundListDropdown, 180)
+    soundListDropdown.listWidth = 180
+    local listButton = soundListDropdown.Button or (soundListDropdown:GetName() and _G[soundListDropdown:GetName().."Button"])
+    if listButton then
+        listButton:SetScript("OnClick", function()
+            ToggleSoundListMenu(soundListDropdown)
+        end)
+    end
+    soundListDropdown:SetScript("OnHide", function()
+        if soundListDropdown.menu then
+            soundListDropdown.menu:Hide()
+        end
+    end)
 
     UIDropDownMenu_Initialize(typeDropdown, function(_, level)
         for _, option in ipairs(SOUND_TEST_OPTIONS) do
@@ -433,38 +613,6 @@ local function AddSoundTestControls(parent, anchor)
                 UpdateSoundListDropdown(soundListDropdown)
             end
             UIDropDownMenu_AddButton(info, level)
-        end
-    end)
-
-    UIDropDownMenu_Initialize(soundListDropdown, function(_, level)
-        local info = UIDropDownMenu_CreateInfo()
-        info.text = "Default (LightsaberCrit)"
-        info.value = ""
-        info.func = function()
-            local kind = LightsaberCritDB.soundTest or "crit"
-            SetSoundOverride(kind, nil)
-            UpdateSoundListDropdown(soundListDropdown)
-        end
-        UIDropDownMenu_AddButton(info, level)
-
-        local list = GetLSMSoundList()
-        if list then
-            for _, name in ipairs(list) do
-                local entry = UIDropDownMenu_CreateInfo()
-                entry.text = name
-                entry.value = name
-                entry.func = function()
-                    local kind = LightsaberCritDB.soundTest or "crit"
-                    SetSoundOverride(kind, name)
-                    UpdateSoundListDropdown(soundListDropdown)
-                end
-                UIDropDownMenu_AddButton(entry, level)
-            end
-        else
-            local warn = UIDropDownMenu_CreateInfo()
-            warn.text = "LibSharedMedia not available"
-            warn.disabled = true
-            UIDropDownMenu_AddButton(warn, level)
         end
     end)
 

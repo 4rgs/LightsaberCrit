@@ -78,6 +78,7 @@ Soporta Classic Era, Classic Anniversary/BCC, MoP y Retail.
 
 
 ## Changelog
+- add: scrollable sound list menu for LSM entries
 - change: config UI labels in English
 - fix: adjust profile controls spacing in config window
 - add: profile system with auto selection and manual override
