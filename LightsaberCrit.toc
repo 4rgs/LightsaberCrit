@@ -6,6 +6,7 @@
 ## Interface-MoP: 50400
 ## Title: LightsaberCrit
 ## Notes: Lightsaber crit/proc; dual-wield alternating swings; targeted mute of default melee SFX; /lsaber
+## X-Curse-Project-ID: 1365221
 ## SavedVariables: LightsaberCritDB
 ## OptionalDeps: LibDataBroker-1.1, LibDBIcon-1.0, LibSharedMedia-3.0
 LightsaberCrit_Compat.lua

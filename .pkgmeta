@@ -1,0 +1,12 @@
+package-as: LightsaberCrit
+ignore:
+  - .git
+  - .github
+  - .husky
+  - githooks
+  - scripts
+  - package.json
+  - package-lock.json
+  - LightsaberCrit.zip
+  - LightsaberCrit
+  - .DS_Store

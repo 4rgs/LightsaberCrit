@@ -35,6 +35,7 @@ Supports Classic Era, Classic Anniversary/BCC, MoP, and Retail.
 - Deployment: run `scripts/deploy.sh` (set `WOW_ADDONS_DIR` if your AddOns path is not auto-detected).
 - Husky pre-push hook: `npm install` then `git push` will auto-run deploy (hook at `.husky/pre-push`).
 - No-node fallback: `git config core.hooksPath githooks` to use the simple pre-push hook.
+- CurseForge CI: set the `CF_API_KEY` secret in GitHub Actions (workflow uses it on push).
 
 ## Notes
 
@@ -80,10 +81,13 @@ Soporta Classic Era, Classic Anniversary/BCC, MoP y Retail.
 - Deployment: ejecuta `scripts/deploy.sh` (define `WOW_ADDONS_DIR` si tu ruta de AddOns no se detecta).
 - Hook pre-push con Husky: `npm install` y luego `git push` ejecuta el deploy (hook en `.husky/pre-push`).
 - Alternativa sin Node: `git config core.hooksPath githooks` para usar el pre-push simple.
+- CI en CurseForge: define el secreto `CF_API_KEY` en GitHub Actions (el workflow lo usa en cada push).
 
 
 
 ## Changelog
+- change: use GitHub Actions secret for CurseForge API key
+- add: CurseForge deploy workflow on push
 - add: husky pre-push deploy hook
 - add: deployment script and pre-push hook
 - add: scrollable sound list menu for LSM entries
