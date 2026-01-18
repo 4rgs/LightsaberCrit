@@ -1,6 +1,7 @@
-local addonName = "LightsaberCrit"
+local addonName = ... or "LightsaberCrit"
 local f = CreateFrame("Frame")
 f:RegisterEvent("PLAYER_LOGIN")
+f:RegisterEvent("ADDON_LOADED")
 f:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 f:RegisterEvent("UNIT_INVENTORY_CHANGED")
 f:RegisterEvent("PLAYER_LOGOUT")
@@ -13,7 +14,7 @@ local DEFAULT_DB = {
     swingEnabled = true,
     minimap = {
         hide = false,
-        angle = 220,
+        angle = 90,
     },
 }
 
@@ -29,9 +30,6 @@ local function ApplyDefaults(target, defaults)
         end
     end
 end
-
-LightsaberCritDB = LightsaberCritDB or {}
-ApplyDefaults(LightsaberCritDB, DEFAULT_DB)
 
 -- === Config ===
 local DEBUG = false          -- Print debug to chat
@@ -68,15 +66,42 @@ end
 local minimapButton = nil
 local optionsPanel = nil
 local optionsControls = nil
+local configFrame = nil
+local configControls = nil
 local OpenConfig = nil
+
+local function Atan2(y, x)
+    if type(math.atan2) == "function" then
+        return math.atan2(y, x)
+    end
+    if x == 0 then
+        if y > 0 then
+            return math.pi / 2
+        elseif y < 0 then
+            return -math.pi / 2
+        end
+        return 0
+    end
+    local angle = math.atan(y / x)
+    if x < 0 then
+        if y >= 0 then
+            angle = angle + math.pi
+        else
+            angle = angle - math.pi
+        end
+    end
+    return angle
+end
 
 local function UpdateMinimapButtonPosition()
     if not minimapButton then return end
-    local angle = LightsaberCritDB.minimap.angle or 220
-    local radius = (Minimap:GetWidth() / 2) + 6
+    local angle = tonumber(LightsaberCritDB.minimap.angle) or 220
+    local width = Minimap:GetWidth()
+    local radius = ((width and width > 0) and (width / 2) or 70) + 6
     local angleRad = math.rad(angle)
     local x = math.cos(angleRad) * radius
     local y = math.sin(angleRad) * radius
+    minimapButton:ClearAllPoints()
     minimapButton:SetPoint("CENTER", Minimap, "CENTER", x, y)
 end
 
@@ -87,6 +112,45 @@ local function SetMinimapButtonVisible(visible)
     else
         minimapButton:Hide()
     end
+end
+
+local function ApplyMinimapButtonLayout()
+    if not minimapButton then return end
+    local iconSize = 14
+    local borderSize = iconSize + 20
+    if minimapButton.icon then
+        minimapButton.icon:ClearAllPoints()
+        minimapButton.icon:SetPoint("CENTER", minimapButton, "CENTER", 0, 0)
+        minimapButton.icon:SetSize(iconSize, iconSize)
+    end
+    if minimapButton.background then
+        minimapButton.background:ClearAllPoints()
+        minimapButton.background:SetPoint("CENTER", minimapButton.icon or minimapButton, "CENTER", 0, 0)
+        minimapButton.background:SetSize(iconSize + 4, iconSize + 4)
+    end
+    if minimapButton.border then
+        minimapButton.border:ClearAllPoints()
+        minimapButton.border:SetPoint("CENTER", minimapButton.icon or minimapButton, "CENTER", 0, 0)
+        minimapButton.border:SetSize(borderSize, borderSize)
+    end
+    local highlight = minimapButton:GetHighlightTexture()
+    if highlight then
+        highlight:ClearAllPoints()
+        highlight:SetPoint("CENTER", minimapButton.icon or minimapButton, "CENTER", 0, 0)
+        highlight:SetSize(borderSize, borderSize)
+        highlight:SetBlendMode("ADD")
+    end
+end
+
+local function ForceShowMinimapButton()
+    if not minimapButton or LightsaberCritDB.minimap.hide then return end
+    minimapButton:SetParent(Minimap)
+    minimapButton:SetFrameStrata("MEDIUM")
+    minimapButton:SetFrameLevel(Minimap:GetFrameLevel() + 8)
+    minimapButton:SetAlpha(1)
+    minimapButton:Show()
+    ApplyMinimapButtonLayout()
+    UpdateMinimapButtonPosition()
 end
 
 local function CreateMinimapButton()
@@ -100,17 +164,29 @@ local function CreateMinimapButton()
     button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     button:RegisterForDrag("LeftButton")
 
+    local background = button:CreateTexture(nil, "BACKGROUND")
+    background:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
+    background:SetPoint("CENTER", button, "CENTER", 0, 0)
+    background:SetSize(20, 20)
+    button.background = background
+
     local icon = button:CreateTexture(nil, "ARTWORK")
     icon:SetTexture("Interface\\Icons\\INV_Sword_04")
     icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     icon:SetPoint("CENTER", button, "CENTER", 0, 0)
-    icon:SetSize(18, 18)
+    icon:SetSize(14, 14)
     button.icon = icon
 
     local border = button:CreateTexture(nil, "OVERLAY")
     border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
     border:SetPoint("TOPLEFT", button, "TOPLEFT", -6, 6)
     border:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 6, -6)
+    button.border = border
+
+    local highlight = button:GetHighlightTexture()
+    if highlight then
+        highlight:SetBlendMode("ADD")
+    end
 
     button:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_LEFT")
@@ -137,7 +213,7 @@ local function CreateMinimapButton()
             cursorX = cursorX / scale
             cursorY = cursorY / scale
             local minimapX, minimapY = Minimap:GetCenter()
-            local angle = math.deg(math.atan(cursorY - minimapY, cursorX - minimapX))
+            local angle = math.deg(Atan2(cursorY - minimapY, cursorX - minimapX))
             if angle < 0 then angle = angle + 360 end
             LightsaberCritDB.minimap.angle = angle
             UpdateMinimapButtonPosition()
@@ -150,8 +226,11 @@ local function CreateMinimapButton()
     end)
 
     minimapButton = button
+    ApplyMinimapButtonLayout()
     UpdateMinimapButtonPosition()
     SetMinimapButtonVisible(not LightsaberCritDB.minimap.hide)
+    ForceShowMinimapButton()
+    C_Timer.After(0.5, ForceShowMinimapButton)
     return minimapButton
 end
 
@@ -167,11 +246,57 @@ local function CreateCheckbox(parent, label, tooltip)
 end
 
 local function RefreshOptionsControls()
-    if not optionsControls then return end
-    optionsControls.swing:SetChecked(LightsaberCritDB.swingEnabled)
-    optionsControls.autoMute:SetChecked(LightsaberCritDB.autoMute)
-    optionsControls.learn:SetChecked(LightsaberCritDB.learn)
-    optionsControls.minimap:SetChecked(not LightsaberCritDB.minimap.hide)
+    if optionsControls then
+        optionsControls.swing:SetChecked(LightsaberCritDB.swingEnabled)
+        optionsControls.autoMute:SetChecked(LightsaberCritDB.autoMute)
+        optionsControls.learn:SetChecked(LightsaberCritDB.learn)
+        optionsControls.minimap:SetChecked(not LightsaberCritDB.minimap.hide)
+    end
+    if configControls then
+        configControls.swing:SetChecked(LightsaberCritDB.swingEnabled)
+        configControls.autoMute:SetChecked(LightsaberCritDB.autoMute)
+        configControls.learn:SetChecked(LightsaberCritDB.learn)
+        configControls.minimap:SetChecked(not LightsaberCritDB.minimap.hide)
+    end
+end
+
+local function BuildOptionsControls(parent, anchor)
+    local swingCheck = CreateCheckbox(parent, "Reproducir swings", "Sonidos de swing en golpes no crit.")
+    swingCheck:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -12)
+    swingCheck:SetScript("OnClick", function(self)
+        LightsaberCritDB.swingEnabled = self:GetChecked() and true or false
+        RefreshOptionsControls()
+    end)
+
+    local autoMuteCheck = CreateCheckbox(parent, "Auto-mute SFX melee", "Silencia SFX melee por defecto alrededor de tus golpes.")
+    autoMuteCheck:SetPoint("TOPLEFT", swingCheck, "BOTTOMLEFT", 0, -8)
+    autoMuteCheck:SetScript("OnClick", function(self)
+        LightsaberCritDB.autoMute = self:GetChecked() and true or false
+        RefreshOptionsControls()
+    end)
+
+    local learnCheck = CreateCheckbox(parent, "Learn mode (mensaje en chat)", "Muestra un mensaje cuando el auto-mute se activa.")
+    learnCheck:SetPoint("TOPLEFT", autoMuteCheck, "BOTTOMLEFT", 0, -8)
+    learnCheck:SetScript("OnClick", function(self)
+        LightsaberCritDB.learn = self:GetChecked() and true or false
+        RefreshOptionsControls()
+    end)
+
+    local minimapCheck = CreateCheckbox(parent, "Mostrar icono en minimapa", "Activa o desactiva el boton del minimapa.")
+    minimapCheck:SetPoint("TOPLEFT", learnCheck, "BOTTOMLEFT", 0, -12)
+    minimapCheck:SetScript("OnClick", function(self)
+        local show = self:GetChecked() and true or false
+        LightsaberCritDB.minimap.hide = not show
+        SetMinimapButtonVisible(show)
+        RefreshOptionsControls()
+    end)
+
+    return {
+        swing = swingCheck,
+        autoMute = autoMuteCheck,
+        learn = learnCheck,
+        minimap = minimapCheck,
+    }, minimapCheck
 end
 
 local function RegisterOptionsPanel(panel)
@@ -197,55 +322,79 @@ local function EnsureOptionsPanel()
     subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
     subtitle:SetText("Configuracion de sonidos y minimapa.")
 
-    local swingCheck = CreateCheckbox(optionsPanel, "Reproducir swings", "Sonidos de swing en golpes no crit.")
-    swingCheck:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", 0, -12)
-    swingCheck:SetScript("OnClick", function(self)
-        LightsaberCritDB.swingEnabled = self:GetChecked() and true or false
-    end)
-
-    local autoMuteCheck = CreateCheckbox(optionsPanel, "Auto-mute SFX melee", "Silencia SFX melee por defecto alrededor de tus golpes.")
-    autoMuteCheck:SetPoint("TOPLEFT", swingCheck, "BOTTOMLEFT", 0, -8)
-    autoMuteCheck:SetScript("OnClick", function(self)
-        LightsaberCritDB.autoMute = self:GetChecked() and true or false
-    end)
-
-    local learnCheck = CreateCheckbox(optionsPanel, "Learn mode (mensaje en chat)", "Muestra un mensaje cuando el auto-mute se activa.")
-    learnCheck:SetPoint("TOPLEFT", autoMuteCheck, "BOTTOMLEFT", 0, -8)
-    learnCheck:SetScript("OnClick", function(self)
-        LightsaberCritDB.learn = self:GetChecked() and true or false
-    end)
-
-    local minimapCheck = CreateCheckbox(optionsPanel, "Mostrar icono en minimapa", "Activa o desactiva el boton del minimapa.")
-    minimapCheck:SetPoint("TOPLEFT", learnCheck, "BOTTOMLEFT", 0, -12)
-    minimapCheck:SetScript("OnClick", function(self)
-        local show = self:GetChecked() and true or false
-        LightsaberCritDB.minimap.hide = not show
-        SetMinimapButtonVisible(show)
-    end)
+    local controls, minimapCheck = BuildOptionsControls(optionsPanel, subtitle)
+    optionsControls = controls
 
     local hint = optionsPanel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     hint:SetPoint("TOPLEFT", minimapCheck, "BOTTOMLEFT", 0, -6)
     hint:SetText("Arrastra el icono para moverlo.")
-
-    optionsControls = {
-        swing = swingCheck,
-        autoMute = autoMuteCheck,
-        learn = learnCheck,
-        minimap = minimapCheck,
-    }
 
     optionsPanel:SetScript("OnShow", RefreshOptionsControls)
     RegisterOptionsPanel(optionsPanel)
     return optionsPanel
 end
 
+local function EnsureConfigFrame()
+    if configFrame then return configFrame end
+
+    configFrame = CreateFrame("Frame", "LightsaberCritConfigFrame", UIParent, "BasicFrameTemplateWithInset")
+    configFrame:SetSize(320, 240)
+    configFrame:SetPoint("CENTER")
+    configFrame:SetMovable(true)
+    configFrame:EnableMouse(true)
+    configFrame:RegisterForDrag("LeftButton")
+    configFrame:SetScript("OnDragStart", function(self)
+        self:StartMoving()
+    end)
+    configFrame:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+    end)
+
+    if configFrame.TitleText then
+        configFrame.TitleText:SetText("LightsaberCrit")
+    else
+        local title = configFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        title:SetPoint("TOPLEFT", configFrame, "TOPLEFT", 16, -8)
+        title:SetText("LightsaberCrit")
+    end
+
+    local close = configFrame.CloseButton
+    if not close then
+        close = CreateFrame("Button", nil, configFrame, "UIPanelCloseButton")
+        configFrame.CloseButton = close
+    end
+    close:ClearAllPoints()
+    local inset = -4
+    close:SetPoint("TOPRIGHT", configFrame, "TOPRIGHT", -inset, -inset)
+
+    local subtitle = configFrame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    subtitle:SetPoint("TOPLEFT", configFrame, "TOPLEFT", 16, -32)
+    subtitle:SetText("Configuracion de sonidos y minimapa.")
+
+    local controls, minimapCheck = BuildOptionsControls(configFrame, subtitle)
+    configControls = controls
+
+    local hint = configFrame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    hint:SetPoint("TOPLEFT", minimapCheck, "BOTTOMLEFT", 0, -6)
+    hint:SetText("Arrastra el icono para moverlo.")
+
+    configFrame:SetScript("OnShow", RefreshOptionsControls)
+    configFrame:Hide()
+
+    if UISpecialFrames then
+        UISpecialFrames[#UISpecialFrames + 1] = "LightsaberCritConfigFrame"
+    end
+
+    return configFrame
+end
+
 OpenConfig = function()
-    local panel = EnsureOptionsPanel()
-    if Settings and Settings.OpenToCategory and panel.category then
-        Settings.OpenToCategory(panel.category)
-    elseif InterfaceOptionsFrame_OpenToCategory then
-        InterfaceOptionsFrame_OpenToCategory(panel)
-        InterfaceOptionsFrame_OpenToCategory(panel)
+    local frame = EnsureConfigFrame()
+    if frame:IsShown() then
+        frame:Hide()
+    else
+        frame:Show()
+        frame:Raise()
     end
 end
 
@@ -339,10 +488,33 @@ SlashCmdList["LIGHTSABER"] = function(msg)
         LightsaberCritDB.learn = (rest == "on")
         RefreshOptionsControls()
         DEFAULT_CHAT_FRAME:AddMessage("|cff00ff88[LSaber]|r Learn mode "..(LightsaberCritDB.learn and "ON" or "OFF"))
+    elseif cmd == "minimap" then
+        if not minimapButton then
+            CreateMinimapButton()
+        end
+        local sub = (rest or ""):lower()
+        if sub == "show" then
+            LightsaberCritDB.minimap.hide = false
+            SetMinimapButtonVisible(true)
+            ForceShowMinimapButton()
+            DEFAULT_CHAT_FRAME:AddMessage("|cff00ff88[LSaber]|r Minimap icon: ON")
+        elseif sub == "hide" then
+            LightsaberCritDB.minimap.hide = true
+            SetMinimapButtonVisible(false)
+            DEFAULT_CHAT_FRAME:AddMessage("|cff00ff88[LSaber]|r Minimap icon: OFF")
+        elseif sub == "reset" then
+            LightsaberCritDB.minimap.hide = false
+            LightsaberCritDB.minimap.angle = 220
+            SetMinimapButtonVisible(true)
+            ForceShowMinimapButton()
+            DEFAULT_CHAT_FRAME:AddMessage("|cff00ff88[LSaber]|r Minimap icon: reset position")
+        else
+            DEFAULT_CHAT_FRAME:AddMessage("|cff00ff88[LSaber]|r /lsaber minimap show | hide | reset")
+        end
     elseif cmd == "config" or cmd == "options" or cmd == "gui" then
         OpenConfig()
     else
-        DEFAULT_CHAT_FRAME:AddMessage("|cff00ff88[LSaber]|r /lsaber crit | proc | s1 | s2 | swingon | swingoff | debug | muteauto on|off | learn on|off | config")
+        DEFAULT_CHAT_FRAME:AddMessage("|cff00ff88[LSaber]|r /lsaber crit | proc | s1 | s2 | swingon | swingoff | debug | muteauto on|off | learn on|off | minimap show|hide|reset | config")
     end
 end
 
@@ -423,7 +595,19 @@ local function handleCombatLog()
 end
 
 f:SetScript("OnEvent", function(self, event, ...)
-    if event == "PLAYER_LOGIN" then
+    if event == "ADDON_LOADED" then
+        local name = ...
+        if name == addonName then
+            if type(LightsaberCritDB) ~= "table" then
+                LightsaberCritDB = {}
+            end
+            ApplyDefaults(LightsaberCritDB, DEFAULT_DB)
+        end
+    elseif event == "PLAYER_LOGIN" then
+        if type(LightsaberCritDB) ~= "table" then
+            LightsaberCritDB = {}
+        end
+        ApplyDefaults(LightsaberCritDB, DEFAULT_DB)
         UpdateDualWieldState()
         EnsureOptionsPanel()
         CreateMinimapButton()
