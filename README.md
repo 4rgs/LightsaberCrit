@@ -86,6 +86,7 @@ Soporta Classic Era, Classic Anniversary/BCC, MoP y Retail.
 
 
 ## Changelog
+- change: resolve CurseForge versions by version type instead of exact patch
 - fix: fallback to nearest CurseForge game version if exact match is missing
 - fix: ensure CurseForge API token is sent for CI uploads
 - fix: upload to CurseForge via API with custom packaging

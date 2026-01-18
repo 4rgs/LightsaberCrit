@@ -40,34 +40,28 @@ jobs:
           fi
           accept_header=(-H "Accept: application/json")
           api_header=(-H "x-api-key: ${CF_API_KEY}")
-          interface_to_version() {
-            local raw="$1"
-            local len=${#raw}
-            local major minor patch
-            if [[ $len -eq 6 ]]; then
-              major="${raw:0:2}"
-              minor="${raw:2:2}"
-              patch="${raw:4:2}"
-            elif [[ $len -eq 5 ]]; then
-              major="${raw:0:1}"
-              minor="${raw:1:2}"
-              patch="${raw:3:2}"
-            else
-              return 1
-            fi
-            minor=$((10#$minor))
-            patch=$((10#$patch))
-            echo "${major}.${minor}.${patch}"
-          }
+          has_retail=false
+          has_classic=false
+          has_bcc=false
+          has_wrath=false
+          has_cata=false
+          has_mop=false
+          grep -q '^## Interface:' LightsaberCrit.toc && has_retail=true
+          grep -q '^## Interface-Classic:' LightsaberCrit.toc && has_classic=true
+          grep -q '^## Interface-BCC:' LightsaberCrit.toc && has_bcc=true
+          grep -q '^## Interface-Wrath:' LightsaberCrit.toc && has_wrath=true
+          grep -q '^## Interface-Cata:' LightsaberCrit.toc && has_cata=true
+          grep -q '^## Interface-MoP:' LightsaberCrit.toc && has_mop=true
 
-          versions=()
-          while read -r line; do
-            value=$(echo "$line" | awk '{print $3}')
-            version=$(interface_to_version "$value")
-            versions+=("$version")
-          done < <(grep -E '^## Interface' LightsaberCrit.toc)
-
-          versions_unique=$(printf '%s\n' "${versions[@]}" | sort -u)
+          types_response=$(curl -sS -w "\n%{http_code}" "${accept_header[@]}" "${api_header[@]}" \
+            "https://api.curseforge.com/v1/games/1/version-types")
+          types_status=$(echo "$types_response" | tail -n 1)
+          types_json=$(echo "$types_response" | sed '$d')
+          if [[ "$types_status" -ge 400 ]]; then
+            echo "CurseForge version types API failed with status $types_status" >&2
+            echo "$types_json" | jq . || echo "$types_json"
+            exit 1
+          fi
           versions_response=$(curl -sS -w "\n%{http_code}" "${accept_header[@]}" "${api_header[@]}" \
             "https://api.curseforge.com/v1/games/1/versions")
           versions_status=$(echo "$versions_response" | tail -n 1)
@@ -78,54 +72,117 @@ jobs:
             exit 1
           fi
 
-          find_version_id() {
-            local ver="$1"
-            local id
-            id=$(echo "$versions_json" | jq -r --arg ver "$ver" '.data[] | select(.versionString==$ver) | .id' | head -n 1)
-            if [[ -n "$id" && "$id" != "null" ]]; then
-              echo "$id"
-              return 0
-            fi
+          get_type_id() {
+            local kind="$1"
+            local id=""
+            case "$kind" in
+              retail)
+                id=$(echo "$types_json" | jq -r '
+                  .data[]
+                  | select(.name != null and (.name | type == "string"))
+                  | select((.name | test("retail";"i")) or ((.name | test("world of warcraft";"i")) and (.name | test("classic";"i") | not)))
+                  | .id' | head -n 1)
+                ;;
+              classic)
+                id=$(echo "$types_json" | jq -r '
+                  .data[]
+                  | select(.name != null and (.name | type == "string"))
+                  | select(.name | test("classic era";"i"))
+                  | .id' | head -n 1)
+                if [[ -z "$id" || "$id" == "null" ]]; then
+                  id=$(echo "$types_json" | jq -r '
+                    .data[]
+                    | select(.name != null and (.name | type == "string"))
+                    | select(.name | test("classic";"i"))
+                    | select(.name | test("burning|wrath|cataclysm|season|hardcore";"i") | not)
+                    | .id' | head -n 1)
+                fi
+                ;;
+              bcc)
+                id=$(echo "$types_json" | jq -r '
+                  .data[]
+                  | select(.name != null and (.name | type == "string"))
+                  | select(.name | test("burning crusade|tbc";"i"))
+                  | .id' | head -n 1)
+                ;;
+              wrath)
+                id=$(echo "$types_json" | jq -r '
+                  .data[]
+                  | select(.name != null and (.name | type == "string"))
+                  | select(.name | test("wrath";"i"))
+                  | .id' | head -n 1)
+                ;;
+              cata)
+                id=$(echo "$types_json" | jq -r '
+                  .data[]
+                  | select(.name != null and (.name | type == "string"))
+                  | select(.name | test("cataclysm";"i"))
+                  | .id' | head -n 1)
+                ;;
+              mop)
+                id=$(echo "$types_json" | jq -r '
+                  .data[]
+                  | select(.name != null and (.name | type == "string"))
+                  | select(.name | test("mists|pandaria";"i"))
+                  | .id' | head -n 1)
+                ;;
+            esac
+            if [[ "$id" == "null" ]]; then id=""; fi
+            echo "$id"
+          }
 
-            local major minor prefix
-            major=$(echo "$ver" | cut -d. -f1)
-            minor=$(echo "$ver" | cut -d. -f2)
-            prefix="${major}.${minor}."
-            id=$(echo "$versions_json" | jq -r --arg prefix "$prefix" '
+          latest_version_id() {
+            local type_id="$1"
+            local id=""
+            id=$(echo "$versions_json" | jq -r --argjson type "$type_id" '
               [ .data[]
-                | select(.versionString | startswith($prefix))
+                | select(.gameVersionTypeId == $type)
+                | select(.versionString != null and (.versionString | type == "string"))
+                | select(.versionString | test("^[0-9]+(\\.[0-9]+)*$"))
                 | {id:.id, parts:(.versionString | split(".") | map(tonumber))}
               ] | sort_by(.parts) | last | .id // empty')
             if [[ -n "$id" && "$id" != "null" ]]; then
-              echo "Fallback for $ver -> $prefix*" >&2
               echo "$id"
               return 0
             fi
-
-            prefix="${major}."
-            id=$(echo "$versions_json" | jq -r --arg prefix "$prefix" '
-              [ .data[]
-                | select(.versionString | startswith($prefix))
-                | {id:.id, parts:(.versionString | split(".") | map(tonumber))}
-              ] | sort_by(.parts) | last | .id // empty')
+            id=$(echo "$versions_json" | jq -r --argjson type "$type_id" '
+              [ .data[] | select(.gameVersionTypeId == $type) | .id ] | max // empty')
             if [[ -n "$id" && "$id" != "null" ]]; then
-              echo "Fallback for $ver -> $prefix*" >&2
               echo "$id"
               return 0
             fi
-
             return 1
           }
 
           ids=()
-          while read -r ver; do
-            id=$(find_version_id "$ver" || true)
-            if [[ -z "$id" || "$id" == "null" ]]; then
-              echo "Missing CurseForge game version id for $ver" >&2
-              exit 1
+          add_type() {
+            local kind="$1"
+            local type_id
+            type_id=$(get_type_id "$kind")
+            if [[ -z "$type_id" ]]; then
+              echo "Warning: missing CurseForge version type for $kind" >&2
+              return
             fi
-            ids+=("$id")
-          done <<< "$versions_unique"
+            local version_id
+            version_id=$(latest_version_id "$type_id" || true)
+            if [[ -z "$version_id" ]]; then
+              echo "Warning: missing CurseForge game version id for type $kind ($type_id)" >&2
+              return
+            fi
+            ids+=("$version_id")
+          }
+
+          if [[ "$has_retail" == "true" ]]; then add_type retail; fi
+          if [[ "$has_classic" == "true" ]]; then add_type classic; fi
+          if [[ "$has_bcc" == "true" ]]; then add_type bcc; fi
+          if [[ "$has_wrath" == "true" ]]; then add_type wrath; fi
+          if [[ "$has_cata" == "true" ]]; then add_type cata; fi
+          if [[ "$has_mop" == "true" ]]; then add_type mop; fi
+
+          if [[ "${#ids[@]}" -eq 0 ]]; then
+            echo "No CurseForge game version ids resolved" >&2
+            exit 1
+          fi
 
           ids_json=$(printf '%s\n' "${ids[@]}" | jq -R . | jq -s .)
           short_sha="${GITHUB_SHA:0:7}"
