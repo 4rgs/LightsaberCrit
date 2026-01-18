@@ -36,8 +36,8 @@ local function EnsureLDBMinimapIcon()
         OnTooltipShow = function(tooltip)
             if not tooltip then return end
             tooltip:AddLine("LightsaberCrit")
-            tooltip:AddLine("Click: abrir opciones", 1, 1, 1)
-            tooltip:AddLine("Arrastrar: mover icono", 1, 1, 1)
+            tooltip:AddLine("Click: open options", 1, 1, 1)
+            tooltip:AddLine("Drag: move icon", 1, 1, 1)
         end,
     })
 
@@ -183,8 +183,8 @@ local function CreateMinimapButton()
     button:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_LEFT")
         GameTooltip:AddLine("LightsaberCrit")
-        GameTooltip:AddLine("Click: abrir opciones", 1, 1, 1)
-        GameTooltip:AddLine("Arrastrar: mover icono", 1, 1, 1)
+        GameTooltip:AddLine("Click: open options", 1, 1, 1)
+        GameTooltip:AddLine("Drag: move icon", 1, 1, 1)
         GameTooltip:Show()
     end)
     button:SetScript("OnLeave", function()
@@ -281,7 +281,7 @@ end
 
 local function UpdateSoundVolumeSliderText(slider, value)
     if not slider or not slider.Text then return end
-    slider.Text:SetText(string.format("Volumen de sonidos: %d%%", math.floor((value or 1) * 100 + 0.5)))
+    slider.Text:SetText(string.format("Sound volume: %d%%", math.floor((value or 1) * 100 + 0.5)))
 end
 
 local SOUND_TEST_OPTIONS = {
@@ -293,9 +293,9 @@ local SOUND_TEST_OPTIONS = {
 
 local PROFILE_MODE_OPTIONS = {
     { value = "global", label = "Global" },
-    { value = "class", label = "Clase" },
-    { value = "spec", label = "Especializacion" },
-    { value = "role", label = "Rol" },
+    { value = "class", label = "Class" },
+    { value = "spec", label = "Specialization" },
+    { value = "role", label = "Role" },
     { value = "manual", label = "Manual" },
 }
 
@@ -380,7 +380,7 @@ local function UpdateProfileControls(controls)
         controls.profileManualEdit:SetText((LSaber.GetManualProfileKey and LSaber.GetManualProfileKey()) or (LightsaberCritDB.manualProfileKey or "global"))
     end
     if controls.profileActiveText then
-        controls.profileActiveText:SetText("Perfil activo: "..((LSaber.GetActiveProfileKey and LSaber.GetActiveProfileKey()) or (LightsaberCritDB.activeProfile or "global")))
+        controls.profileActiveText:SetText("Active profile: "..((LSaber.GetActiveProfileKey and LSaber.GetActiveProfileKey()) or (LightsaberCritDB.activeProfile or "global")))
     end
     local showManual = (mode == "manual")
     if controls.profileManualLabel then
@@ -401,7 +401,7 @@ local function UpdateSoundListDropdown(dropdown)
     if UIDropDownMenu_SetSelectedValue then
         UIDropDownMenu_SetSelectedValue(dropdown, override or "")
     end
-    UIDropDownMenu_SetText(dropdown, override or "Por defecto (LightsaberCrit)")
+    UIDropDownMenu_SetText(dropdown, override or "Default (LightsaberCrit)")
 end
 
 local function AddSoundTestControls(parent, anchor)
@@ -438,7 +438,7 @@ local function AddSoundTestControls(parent, anchor)
 
     UIDropDownMenu_Initialize(soundListDropdown, function(_, level)
         local info = UIDropDownMenu_CreateInfo()
-        info.text = "Por defecto (LightsaberCrit)"
+        info.text = "Default (LightsaberCrit)"
         info.value = ""
         info.func = function()
             local kind = LightsaberCritDB.soundTest or "crit"
@@ -462,7 +462,7 @@ local function AddSoundTestControls(parent, anchor)
             end
         else
             local warn = UIDropDownMenu_CreateInfo()
-            warn.text = "LibSharedMedia no disponible"
+            warn.text = "LibSharedMedia not available"
             warn.disabled = true
             UIDropDownMenu_AddButton(warn, level)
         end
@@ -471,7 +471,7 @@ local function AddSoundTestControls(parent, anchor)
     UpdateSoundDropdown(typeDropdown)
     UpdateSoundListDropdown(soundListDropdown)
 
-    local playButton = CreateButton(parent, "Reproducir", 90, 22)
+    local playButton = CreateButton(parent, "Play", 90, 22)
     playButton:SetPoint("LEFT", typeDropdown, "RIGHT", -6, 2)
     playButton:SetScript("OnClick", PlaySelectedSound)
 
@@ -486,7 +486,7 @@ local function AddProfileControls(parent, anchor)
     local profileControls = nil
     local title = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     title:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 16, -8)
-    title:SetText("Perfiles:")
+    title:SetText("Profiles:")
 
     local modeDropdown = CreateFrame("Frame", nil, parent, "UIDropDownMenuTemplate")
     modeDropdown:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
@@ -510,7 +510,7 @@ local function AddProfileControls(parent, anchor)
 
     local manualLabel = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     manualLabel:SetPoint("TOPLEFT", modeDropdown, "BOTTOMLEFT", 0, -4)
-    manualLabel:SetText("Perfil manual:")
+    manualLabel:SetText("Manual profile:")
 
     local manualEdit = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
     manualEdit:SetAutoFocus(false)
@@ -542,7 +542,7 @@ local function AddProfileControls(parent, anchor)
 
     local activeText = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     activeText:SetPoint("TOPLEFT", manualLabel, "BOTTOMLEFT", 0, -4)
-    activeText:SetText("Perfil activo: "..((LSaber.GetActiveProfileKey and LSaber.GetActiveProfileKey()) or (LightsaberCritDB.activeProfile or "global")))
+    activeText:SetText("Active profile: "..((LSaber.GetActiveProfileKey and LSaber.GetActiveProfileKey()) or (LightsaberCritDB.activeProfile or "global")))
 
     local spacer = CreateFrame("Frame", nil, parent)
     spacer:SetSize(1, 1)
@@ -588,35 +588,35 @@ local function RefreshOptionsControls()
 end
 
 local function BuildOptionsControls(parent, anchor)
-    local swingCheck = CreateCheckbox(parent, "Reproducir swings", "Sonidos de swing en golpes no crit.")
+    local swingCheck = CreateCheckbox(parent, "Play swings", "Swing sounds on non-crit hits.")
     swingCheck:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -12)
     swingCheck:SetScript("OnClick", function(self)
         LightsaberCritDB.swingEnabled = self:GetChecked() and true or false
         RefreshOptionsControls()
     end)
 
-    local combatOnlyCheck = CreateCheckbox(parent, "Solo en combate", "Reproduce sonidos solo cuando estas en combate.")
+    local combatOnlyCheck = CreateCheckbox(parent, "Combat only", "Play sounds only while in combat.")
     combatOnlyCheck:SetPoint("TOPLEFT", swingCheck, "BOTTOMLEFT", 0, -8)
     combatOnlyCheck:SetScript("OnClick", function(self)
         LightsaberCritDB.combatOnly = self:GetChecked() and true or false
         RefreshOptionsControls()
     end)
 
-    local autoMuteCheck = CreateCheckbox(parent, "Auto-mute SFX melee", "Silencia SFX melee por defecto alrededor de tus golpes.")
+    local autoMuteCheck = CreateCheckbox(parent, "Auto-mute melee SFX", "Temporarily mute default melee SFX around your swings.")
     autoMuteCheck:SetPoint("TOPLEFT", combatOnlyCheck, "BOTTOMLEFT", 0, -8)
     autoMuteCheck:SetScript("OnClick", function(self)
         LightsaberCritDB.autoMute = self:GetChecked() and true or false
         RefreshOptionsControls()
     end)
 
-    local learnCheck = CreateCheckbox(parent, "Learn mode (mensaje en chat)", "Muestra un mensaje cuando el auto-mute se activa.")
+    local learnCheck = CreateCheckbox(parent, "Learn mode (chat message)", "Show a message when auto-mute triggers.")
     learnCheck:SetPoint("TOPLEFT", autoMuteCheck, "BOTTOMLEFT", 0, -8)
     learnCheck:SetScript("OnClick", function(self)
         LightsaberCritDB.learn = self:GetChecked() and true or false
         RefreshOptionsControls()
     end)
 
-    local minimapCheck = CreateCheckbox(parent, "Mostrar icono en minimapa", "Activa o desactiva el boton del minimapa.")
+    local minimapCheck = CreateCheckbox(parent, "Show minimap icon", "Toggle the minimap button.")
     minimapCheck:SetPoint("TOPLEFT", learnCheck, "BOTTOMLEFT", 0, -12)
     minimapCheck:SetScript("OnClick", function(self)
         local show = self:GetChecked() and true or false
@@ -626,7 +626,7 @@ local function BuildOptionsControls(parent, anchor)
         RefreshOptionsControls()
     end)
 
-    local volumeSlider = CreateSlider(parent, "Volumen de sonidos:", 0.10, 1.00, 0.05)
+    local volumeSlider = CreateSlider(parent, "Sound volume:", 0.10, 1.00, 0.05)
     volumeSlider:SetPoint("TOPLEFT", minimapCheck, "BOTTOMLEFT", 0, -16)
     volumeSlider:SetScript("OnValueChanged", function(self, value)
         local step = 0.05
@@ -672,14 +672,14 @@ local function EnsureOptionsPanel()
 
     local subtitle = optionsPanel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
-    subtitle:SetText("Configuracion de sonidos y minimapa.")
+    subtitle:SetText("Sound and minimap settings.")
 
     local controls, bottomAnchor = BuildOptionsControls(optionsPanel, subtitle)
     optionsControls = controls
 
     local hint = optionsPanel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     hint:SetPoint("TOPLEFT", bottomAnchor, "BOTTOMLEFT", 0, -6)
-    hint:SetText("Arrastra el icono para moverlo.")
+    hint:SetText("Drag the icon to move it.")
 
     optionsPanel:SetScript("OnShow", RefreshOptionsControls)
     RegisterOptionsPanel(optionsPanel)
@@ -721,14 +721,14 @@ local function EnsureConfigFrame()
 
     local subtitle = configFrame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     subtitle:SetPoint("TOPLEFT", configFrame, "TOPLEFT", 16, -32)
-    subtitle:SetText("Configuracion de sonidos y minimapa.")
+    subtitle:SetText("Sound and minimap settings.")
 
     local controls, bottomAnchor = BuildOptionsControls(configFrame, subtitle)
     configControls = controls
 
     local hint = configFrame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     hint:SetPoint("TOPLEFT", bottomAnchor, "BOTTOMLEFT", 0, -6)
-    hint:SetText("Arrastra el icono para moverlo.")
+    hint:SetText("Drag the icon to move it.")
 
     configFrame:SetScript("OnShow", RefreshOptionsControls)
     configFrame:Hide()
