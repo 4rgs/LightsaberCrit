@@ -15,6 +15,7 @@ local DEFAULT_DB = {
     minimap = {
         hide = false,
         angle = 90,
+        minimapPos = 90,
     },
 }
 
@@ -64,11 +65,78 @@ end
 
 -- === UI (options + minimap icon) ===
 local minimapButton = nil
+local ldbObject = nil
+local ldbIcon = nil
 local optionsPanel = nil
 local optionsControls = nil
 local configFrame = nil
 local configControls = nil
 local OpenConfig = nil
+local After = nil
+
+do
+    if C_Timer and C_Timer.After then
+        After = C_Timer.After
+    else
+        local timers = {}
+        local frame = CreateFrame("Frame")
+        frame:SetScript("OnUpdate", function(_, elapsed)
+            for i = #timers, 1, -1 do
+                local timer = timers[i]
+                timer.remaining = timer.remaining - elapsed
+                if timer.remaining <= 0 then
+                    table.remove(timers, i)
+                    timer.func()
+                end
+            end
+        end)
+        After = function(delay, func)
+            if type(func) ~= "function" then return end
+            timers[#timers + 1] = { remaining = delay or 0, func = func }
+        end
+    end
+end
+
+local function EnsureLDBMinimapIcon()
+    if ldbIcon then
+        return true
+    end
+    if not LibStub then
+        return false
+    end
+    local LDB = LibStub("LibDataBroker-1.1", true)
+    local LDBIcon = LibStub("LibDBIcon-1.0", true)
+    if not LDB or not LDBIcon then
+        return false
+    end
+
+    ldbIcon = LDBIcon
+    ldbObject = LDB:NewDataObject(addonName, {
+        type = "launcher",
+        text = addonName,
+        icon = "Interface\\Icons\\INV_Sword_04",
+        OnClick = function(_, button)
+            if button == "LeftButton" then
+                OpenConfig()
+            end
+        end,
+        OnTooltipShow = function(tooltip)
+            if not tooltip then return end
+            tooltip:AddLine("LightsaberCrit")
+            tooltip:AddLine("Click: abrir opciones", 1, 1, 1)
+            tooltip:AddLine("Arrastrar: mover icono", 1, 1, 1)
+        end,
+    })
+    LightsaberCritDB.minimap = LightsaberCritDB.minimap or {}
+    if LightsaberCritDB.minimap.minimapPos == nil then
+        local angle = tonumber(LightsaberCritDB.minimap.angle)
+        if angle then
+            LightsaberCritDB.minimap.minimapPos = angle
+        end
+    end
+    LDBIcon:Register(addonName, ldbObject, LightsaberCritDB.minimap)
+    return true
+end
 
 local function Atan2(y, x)
     if type(math.atan2) == "function" then
@@ -95,7 +163,9 @@ end
 
 local function UpdateMinimapButtonPosition()
     if not minimapButton then return end
-    local angle = tonumber(LightsaberCritDB.minimap.angle) or 220
+    local angle = tonumber(LightsaberCritDB.minimap.minimapPos)
+        or tonumber(LightsaberCritDB.minimap.angle)
+        or 220
     local width = Minimap:GetWidth()
     local radius = ((width and width > 0) and (width / 2) or 70) + 6
     local angleRad = math.rad(angle)
@@ -106,6 +176,14 @@ local function UpdateMinimapButtonPosition()
 end
 
 local function SetMinimapButtonVisible(visible)
+    if ldbIcon then
+        if visible then
+            ldbIcon:Show(addonName)
+        else
+            ldbIcon:Hide(addonName)
+        end
+        return
+    end
     if not minimapButton then return end
     if visible then
         minimapButton:Show()
@@ -142,6 +220,12 @@ local function ApplyMinimapButtonLayout()
     end
 end
 
+local function RefreshMinimapIcon()
+    if ldbIcon and ldbIcon.Refresh then
+        ldbIcon:Refresh(addonName, LightsaberCritDB.minimap)
+    end
+end
+
 local function ForceShowMinimapButton()
     if not minimapButton or LightsaberCritDB.minimap.hide then return end
     minimapButton:SetParent(Minimap)
@@ -154,7 +238,11 @@ local function ForceShowMinimapButton()
 end
 
 local function CreateMinimapButton()
-    if minimapButton then return minimapButton end
+    if minimapButton or ldbIcon then return minimapButton end
+    if EnsureLDBMinimapIcon() then
+        SetMinimapButtonVisible(not LightsaberCritDB.minimap.hide)
+        return nil
+    end
 
     local button = CreateFrame("Button", "LightsaberCritMinimapButton", Minimap)
     button:SetSize(32, 32)
@@ -216,6 +304,7 @@ local function CreateMinimapButton()
             local angle = math.deg(Atan2(cursorY - minimapY, cursorX - minimapX))
             if angle < 0 then angle = angle + 360 end
             LightsaberCritDB.minimap.angle = angle
+            LightsaberCritDB.minimap.minimapPos = angle
             UpdateMinimapButtonPosition()
         end)
     end)
@@ -230,7 +319,7 @@ local function CreateMinimapButton()
     UpdateMinimapButtonPosition()
     SetMinimapButtonVisible(not LightsaberCritDB.minimap.hide)
     ForceShowMinimapButton()
-    C_Timer.After(0.5, ForceShowMinimapButton)
+    After(0.5, ForceShowMinimapButton)
     return minimapButton
 end
 
@@ -431,7 +520,7 @@ local function ensureSFXMuteWindow()
     if now < sfxMuteUntil then
         local remaining = sfxMuteUntil - now
         if remaining < 0 then remaining = 0 end
-        C_Timer.After(remaining, ensureSFXMuteWindow)
+        After(remaining, ensureSFXMuteWindow)
         return
     end
     restoreSFXMute()
@@ -448,7 +537,7 @@ local function muteSFXFor(duration)
         if LightsaberCritDB.learn then
             DEFAULT_CHAT_FRAME:AddMessage("|cff00ff88[LSaber]|r Auto-mute SFX for "..tostring(duration).."s")
         end
-        C_Timer.After(duration, ensureSFXMuteWindow)
+        After(duration, ensureSFXMuteWindow)
     end
 end
 
@@ -489,9 +578,7 @@ SlashCmdList["LIGHTSABER"] = function(msg)
         RefreshOptionsControls()
         DEFAULT_CHAT_FRAME:AddMessage("|cff00ff88[LSaber]|r Learn mode "..(LightsaberCritDB.learn and "ON" or "OFF"))
     elseif cmd == "minimap" then
-        if not minimapButton then
-            CreateMinimapButton()
-        end
+        CreateMinimapButton()
         local sub = (rest or ""):lower()
         if sub == "show" then
             LightsaberCritDB.minimap.hide = false
@@ -505,8 +592,10 @@ SlashCmdList["LIGHTSABER"] = function(msg)
         elseif sub == "reset" then
             LightsaberCritDB.minimap.hide = false
             LightsaberCritDB.minimap.angle = 220
+            LightsaberCritDB.minimap.minimapPos = 220
             SetMinimapButtonVisible(true)
             ForceShowMinimapButton()
+            RefreshMinimapIcon()
             DEFAULT_CHAT_FRAME:AddMessage("|cff00ff88[LSaber]|r Minimap icon: reset position")
         else
             DEFAULT_CHAT_FRAME:AddMessage("|cff00ff88[LSaber]|r /lsaber minimap show | hide | reset")
@@ -533,12 +622,27 @@ local function playSwingSound()
     end
 end
 
-local function handleCombatLog()
+local function handleCombatLog(...)
     local timestamp, subEvent, hideCaster,
           srcGUID, srcName, srcFlags, srcRaidFlags,
           dstGUID, dstName, dstFlags, dstRaidFlags,
           arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19, arg20, arg21, arg22, arg23
-        = CombatLogGetCurrentEventInfo()
+
+    if CombatLogGetCurrentEventInfo then
+        timestamp, subEvent, hideCaster,
+            srcGUID, srcName, srcFlags, srcRaidFlags,
+            dstGUID, dstName, dstFlags, dstRaidFlags,
+            arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19, arg20, arg21, arg22, arg23
+            = CombatLogGetCurrentEventInfo()
+    else
+        timestamp, subEvent, hideCaster,
+            srcGUID, srcName, srcFlags, srcRaidFlags,
+            dstGUID, dstName, dstFlags, dstRaidFlags,
+            arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19, arg20, arg21, arg22, arg23
+            = ...
+    end
+
+    if not subEvent then return end
 
     if not isPlayerGUID(srcGUID) then return end
 
@@ -620,6 +724,6 @@ f:SetScript("OnEvent", function(self, event, ...)
             UpdateDualWieldState()
         end
     elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
-        handleCombatLog()
+        handleCombatLog(...)
     end
 end)

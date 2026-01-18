@@ -1,6 +1,7 @@
 # LightsaberCrit
 
-WoW Classic Era addon that plays lightsaber-inspired sounds on melee events (e.g., swings, crits, procs).
+World of Warcraft addon that plays lightsaber-inspired sounds on melee events (e.g., swings, crits, procs).
+Supports Classic Era, Classic Anniversary/BCC, MoP, and Retail.
 
 ## Install
 
@@ -24,6 +25,7 @@ WoW Classic Era addon that plays lightsaber-inspired sounds on melee events (e.g
 
 - Edit `LightsaberCrit.lua` and assets under `sounds/`.
 - Typical structure for a simple addon. No external libraries required.
+- If `LibDataBroker-1.1` and `LibDBIcon-1.0` are present, the minimap icon uses them.
 
 ## Notes
 
@@ -34,7 +36,8 @@ WoW Classic Era addon that plays lightsaber-inspired sounds on melee events (e.g
 
 # Español
 
-Addon para WoW Classic Era que reproduce sonidos estilo sable de luz en eventos de combate (p. ej., golpes, críticos, procs).
+Addon para World of Warcraft que reproduce sonidos estilo sable de luz en eventos de combate (p. ej., golpes, críticos, procs).
+Soporta Classic Era, Classic Anniversary/BCC, MoP y Retail.
 
 ## Instalación
 
@@ -58,11 +61,12 @@ Addon para WoW Classic Era que reproduce sonidos estilo sable de luz en eventos 
 
 - Edita `LightsaberCrit.lua` y los sonidos en `sounds/`.
 - No requiere librerías externas.
+- Si `LibDataBroker-1.1` y `LibDBIcon-1.0` están presentes, el icono del minimapa usa esas librerías.
 
 
 
 ## Changelog
-  fix: avoid PlaySound hooks and mute SFX via CVar to prevent logout taint
-
-  Replaces global PlaySound/PlaySoundFile overrides with temporary SFX CVar mute
-  and restores SFX on logout.
+- add: multi-client .toc interface tags (Classic Era/BCC/MoP/Retail)
+- add: LDB/DBIcon minimap icon integration with manual fallback
+- fix: timer and combat log fallbacks for older clients
+- fix: avoid PlaySound hooks and mute SFX via CVar to prevent logout taint
