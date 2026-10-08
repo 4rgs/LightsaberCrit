@@ -2,10 +2,10 @@ local addonName, LSaber = ...
 LSaber = LSaber or {}
 LSaber.AddonName = LSaber.AddonName or addonName or "LightsaberCrit"
 
-local SOUND_CRIT = "Interface\\AddOns\\LightsaberCrit\\sounds\\lightsaber_crit.wav"
-local SOUND_PROC = "Interface\\AddOns\\LightsaberCrit\\sounds\\lightsaber_proc.wav"
-local SOUND_SWING1 = "Interface\\AddOns\\LightsaberCrit\\sounds\\lightsaber_swing1.wav"
-local SOUND_SWING2 = "Interface\\AddOns\\LightsaberCrit\\sounds\\lightsaber_swing2.wav"
+local SOUND_CRIT = "Interface\\AddOns\\LightsaberCrit\\sounds\\lightsaber_crit.ogg"
+local SOUND_PROC = "Interface\\AddOns\\LightsaberCrit\\sounds\\lightsaber_proc.ogg"
+local SOUND_SWING1 = "Interface\\AddOns\\LightsaberCrit\\sounds\\lightsaber_swing1.ogg"
+local SOUND_SWING2 = "Interface\\AddOns\\LightsaberCrit\\sounds\\lightsaber_swing2.ogg"
 
 local DEFAULT_SOUNDS = {
     crit = SOUND_CRIT,

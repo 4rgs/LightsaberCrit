@@ -2,6 +2,28 @@ local addonName, LSaber = ...
 LSaber = LSaber or {}
 LSaber.AddonName = LSaber.AddonName or addonName or "LightsaberCrit"
 
+local _, _, _, interfaceVersion = GetBuildInfo()
+LSaber.InterfaceVersion = tonumber(interfaceVersion) or 0
+LSaber.IsForever = LSaber.InterfaceVersion >= 16000 and LSaber.InterfaceVersion < 20000
+
+if C_Item then
+    LSaber.GetItemInfo = C_Item.GetItemInfo or GetItemInfo
+    LSaber.GetItemInfoInstant = C_Item.GetItemInfoInstant or GetItemInfoInstant
+    LSaber.GetItemClassInfo = C_Item.GetItemClassInfo or GetItemClassInfo
+else
+    LSaber.GetItemInfo = GetItemInfo
+    LSaber.GetItemInfoInstant = GetItemInfoInstant
+    LSaber.GetItemClassInfo = GetItemClassInfo
+end
+
+if C_SpecializationInfo then
+    LSaber.GetSpecialization = C_SpecializationInfo.GetSpecialization or GetSpecialization
+    LSaber.GetSpecializationInfo = C_SpecializationInfo.GetSpecializationInfo or GetSpecializationInfo
+else
+    LSaber.GetSpecialization = GetSpecialization
+    LSaber.GetSpecializationInfo = GetSpecializationInfo
+end
+
 if not LSaber.After then
     if C_Timer and C_Timer.After then
         LSaber.After = C_Timer.After

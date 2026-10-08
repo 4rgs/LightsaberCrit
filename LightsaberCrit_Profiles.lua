@@ -52,10 +52,10 @@ local function GetClassKey()
 end
 
 local function GetSpecKey()
-    if GetSpecialization and GetSpecializationInfo then
-        local specIndex = GetSpecialization()
+    if LSaber.GetSpecialization and LSaber.GetSpecializationInfo then
+        local specIndex = LSaber.GetSpecialization()
         if specIndex then
-            local specID, specName = GetSpecializationInfo(specIndex)
+            local specID, specName = LSaber.GetSpecializationInfo(specIndex, false, false)
             if specID then
                 return "spec:"..tostring(specID)
             end

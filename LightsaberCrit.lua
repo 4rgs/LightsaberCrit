@@ -5,10 +5,35 @@ LSaber.AddonName = LSaber.AddonName or addonName or "LightsaberCrit"
 local f = CreateFrame("Frame")
 f:RegisterEvent("PLAYER_LOGIN")
 f:RegisterEvent("ADDON_LOADED")
-f:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+local getCombatLogEventInfo
+local combatLogEvent = "COMBAT_LOG_EVENT_UNFILTERED"
+local combatLogCallback = false
+if C_CombatLogInternal and C_CombatLogInternal.GetCurrentEventInfo and f.RegisterEventCallback then
+    getCombatLogEventInfo = C_CombatLogInternal.GetCurrentEventInfo
+    combatLogEvent = "COMBAT_LOG_EVENT_INTERNAL_UNFILTERED"
+    combatLogCallback = true
+elseif CombatLogGetCurrentEventInfo then
+    getCombatLogEventInfo = CombatLogGetCurrentEventInfo
+end
+local useUnitCombatFallback = LSaber.IsForever and not combatLogCallback and not getCombatLogEventInfo
+if not combatLogCallback and not useUnitCombatFallback then
+    f:RegisterEvent(combatLogEvent)
+end
+if useUnitCombatFallback then
+    if f.RegisterUnitEvent then
+        f:RegisterUnitEvent("UNIT_COMBAT", "target")
+    else
+        f:RegisterEvent("UNIT_COMBAT")
+    end
+end
 f:RegisterEvent("UNIT_INVENTORY_CHANGED")
 f:RegisterEvent("PLAYER_LOGOUT")
-f:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+if f.RegisterUnitEvent then
+    f:RegisterUnitEvent("PLAYER_SPECIALIZATION_CHANGED", "player")
+else
+    f:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+end
+f:RegisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED")
 f:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
 f:RegisterEvent("PLAYER_TALENT_UPDATE")
 f:RegisterEvent("PLAYER_ROLES_ASSIGNED")
@@ -87,8 +112,20 @@ local function UpdateDualWieldState()
         dualWield = false
         return
     end
-    local itemName, _, _, _, _, itemType = GetItemInfo(offhandItemID)
-    dualWield = (itemType == GetItemClassInfo(2))  -- "Weapon"
+
+    local itemName, itemClass
+    if LSaber.GetItemInfoInstant then
+        local _, _, _, _, _, instantClass = LSaber.GetItemInfoInstant(offhandItemID)
+        itemClass = instantClass
+        dualWield = itemClass == 2
+    elseif LSaber.GetItemInfo then
+        itemName, _, _, _, _, itemClass = LSaber.GetItemInfo(offhandItemID)
+        if type(itemClass) == "number" then
+            dualWield = itemClass == 2
+        else
+            dualWield = itemClass == (LSaber.GetItemClassInfo and LSaber.GetItemClassInfo(2) or "Weapon")
+        end
+    end
     debug("Dual wield:", dualWield and "ON" or "OFF", "(", itemName or "?", ")")
 end
 
@@ -112,12 +149,12 @@ local function handleCombatLog(...)
           dstGUID, dstName, dstFlags, dstRaidFlags,
           arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19, arg20, arg21, arg22, arg23
 
-    if CombatLogGetCurrentEventInfo then
+    if getCombatLogEventInfo then
         timestamp, subEvent, hideCaster,
             srcGUID, srcName, srcFlags, srcRaidFlags,
             dstGUID, dstName, dstFlags, dstRaidFlags,
             arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19, arg20, arg21, arg22, arg23
-            = CombatLogGetCurrentEventInfo()
+            = getCombatLogEventInfo()
     else
         timestamp, subEvent, hideCaster,
             srcGUID, srcName, srcFlags, srcRaidFlags,
@@ -181,7 +218,7 @@ local function handleCombatLog(...)
 
     -- Extra attacks
     if subEvent == "SPELL_EXTRA_ATTACKS" then
-        local spellId, spellName, amount = arg12, arg13, arg14
+        local spellId, spellName, amount = arg12, arg13, arg15
         if LSaber.PlayProc then
             LSaber.PlayProc()
         end
@@ -200,6 +237,39 @@ local function handleCombatLog(...)
         end
         return
     end
+end
+
+local function handleUnitCombat(unitTarget, combatEvent, flagText)
+    if not useUnitCombatFallback or unitTarget ~= "target" or not LightsaberCritDB then
+        return
+    end
+    if LightsaberCritDB.combatOnly and not isPlayerInCombat() then
+        return
+    end
+
+    local muteDuration = tonumber(LightsaberCritDB.autoMuteDuration) or 0.25
+    local critical = flagText and flagText:find("CRITICAL")
+    if critical then
+        if LSaber.MuteSFXFor then
+            LSaber.MuteSFXFor(muteDuration)
+        end
+        if LSaber.PlayCrit then
+            LSaber.PlayCrit()
+        end
+    elseif combatEvent == "WOUND" then
+        if LSaber.MuteSFXFor then
+            LSaber.MuteSFXFor(muteDuration)
+        end
+        if LightsaberCritDB.swingEnabled and LSaber.PlaySwing then
+            LSaber.PlaySwing(dualWield)
+        end
+    end
+end
+
+if combatLogCallback then
+    f:RegisterEventCallback(combatLogEvent, function()
+        handleCombatLog()
+    end)
 end
 
 local function RefreshOptionsControls()
@@ -338,9 +408,12 @@ f:SetScript("OnEvent", function(self, event, ...)
         if unit == "player" then
             UpdateDualWieldState()
         end
-    elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
+    elseif event == combatLogEvent then
         handleCombatLog(...)
+    elseif event == "UNIT_COMBAT" then
+        handleUnitCombat(...)
     elseif event == "PLAYER_SPECIALIZATION_CHANGED"
+        or event == "ACTIVE_PLAYER_SPECIALIZATION_CHANGED"
         or event == "ACTIVE_TALENT_GROUP_CHANGED"
         or event == "PLAYER_TALENT_UPDATE"
         or event == "PLAYER_ROLES_ASSIGNED" then

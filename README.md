@@ -1,7 +1,7 @@
 # LightsaberCrit
 
 World of Warcraft addon that plays lightsaber-inspired sounds on melee events (e.g., swings, crits, procs).
-Supports Classic Era, Classic Anniversary/BCC, MoP, and Retail.
+Supports WoW Forever (Camelot), Classic Era, Classic Anniversary/BCC, MoP, and Retail.
 
 ## Install
 
@@ -12,12 +12,12 @@ Supports Classic Era, Classic Anniversary/BCC, MoP, and Retail.
 ## Files
 
 - `LightsaberCrit.toc` – Addon manifest (loads the Lua and sound assets)
-- `LightsaberCrit_Compat.lua` – Compatibility helpers (timers/math)
+- `LightsaberCrit_Compat.lua` – Compatibility helpers (timers, item/spec APIs, combat log)
 - `LightsaberCrit_Profiles.lua` – Profile management (class/spec/role/manual)
 - `LightsaberCrit_Sounds.lua` – Sound playback and SFX mute logic
 - `LightsaberCrit_UI.lua` – Options UI and minimap icon
 - `LightsaberCrit.lua` – Core addon logic and events
-- `sounds/` – Sound assets used by the addon
+- `sounds/` – Sound assets used by the addon (`.ogg`)
 
 ## Usage
 
@@ -39,7 +39,7 @@ Supports Classic Era, Classic Anniversary/BCC, MoP, and Retail.
 
 ## Notes
 
-- Built and tested for WoW Classic Era.
+- Built and tested for WoW Classic Era; WoW Forever support targets Interface 16001.
 - Contributions and suggestions are welcome.
 
 ---
@@ -47,7 +47,7 @@ Supports Classic Era, Classic Anniversary/BCC, MoP, and Retail.
 # Español
 
 Addon para World of Warcraft que reproduce sonidos estilo sable de luz en eventos de combate (p. ej., golpes, críticos, procs).
-Soporta Classic Era, Classic Anniversary/BCC, MoP y Retail.
+Soporta WoW Forever (Camelot), Classic Era, Classic Anniversary/BCC, MoP y Retail.
 
 ## Instalación
 
@@ -58,12 +58,12 @@ Soporta Classic Era, Classic Anniversary/BCC, MoP y Retail.
 ## Archivos
 
 - `LightsaberCrit.toc` – Manifiesto del addon
-- `LightsaberCrit_Compat.lua` – Helpers de compatibilidad (timers/math)
+- `LightsaberCrit_Compat.lua` – Helpers de compatibilidad (timers, APIs de objetos/especialización y combat log)
 - `LightsaberCrit_Profiles.lua` – Perfiles (clase/especializacion/rol/manual)
 - `LightsaberCrit_Sounds.lua` – Sonidos y mute de SFX
 - `LightsaberCrit_UI.lua` – UI de opciones e icono del minimapa
 - `LightsaberCrit.lua` – Logica principal y eventos
-- `sounds/` – Archivos de sonido
+- `sounds/` – Archivos de sonido (`.ogg`)
 
 ## Uso
 
@@ -86,6 +86,8 @@ Soporta Classic Era, Classic Anniversary/BCC, MoP y Retail.
 
 
 ## Changelog
+- add: WoW Forever/Camelot compatibility (Interface 16001, modern APIs, internal combat events)
+- fix: use WoW-compatible OGG sound assets
 - change: resolve CurseForge versions from Interface with fallback
 - change: resolve CurseForge versions by version type instead of exact patch
 - fix: fallback to nearest CurseForge game version if exact match is missing

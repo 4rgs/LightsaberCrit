@@ -1,10 +1,12 @@
 ## Interface: 110007
+## Interface-Camelot: 16001
 ## Interface-Classic: 11507
 ## Interface-BCC: 20504
 ## Interface-Wrath: 30403
 ## Interface-Cata: 40400
 ## Interface-MoP: 50400
 ## Title: LightsaberCrit
+## Version: 1.7.0
 ## Notes: Lightsaber crit/proc; dual-wield alternating swings; targeted mute of default melee SFX; /lsaber
 ## X-Curse-Project-ID: 1365221
 ## SavedVariables: LightsaberCritDB
